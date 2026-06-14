@@ -24,3 +24,6 @@ tokio.workspace = true
 actix-governor.workspace = true
 tonic = "0.12"
 
+[dev-dependencies]
+actix-http.workspace = true
+

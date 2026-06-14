@@ -82,7 +82,7 @@ logs-backend:
 	docker compose logs backend -f
 
 test-api:
-	./test-api.sh
+	./scripts/test-api.sh
 
 proto:
 	cargo build -p common --timings

@@ -44,7 +44,9 @@ Deposit Worker (background)
 
 ```bash
 make dev              # starts all services (backend + worker + frontend)
-make ci               # full pipeline (fmt → clippy → test → build)
+make ci               # full pipeline (fmt → clippy → test → lint → build)
+make test             # Rust unit + integration tests (routes, CORS, auth)
+make test-api         # curl-based smoke tests (requires docker services)
 ```
 
 ## API
@@ -73,8 +75,8 @@ lib/
   common/               Proto-compiled gRPC stubs
   share/                Shared DB models, RPC client, ERC20 decoder, contract model
 scripts/
-  test-api.sh           Curl-based API smoke tests
-  crontab.example       Example crontab for background tasks
+  test-api.sh           Curl-based API smoke tests (CORS, endpoints, auth)
+docker-compose.ci.yml   CI-specific Postgres service for smoke tests
 react/                  SPA dashboard + trading interface
 ```
 
