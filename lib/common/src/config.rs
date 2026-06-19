@@ -58,3 +58,98 @@ impl ProcessConfig {
         self.get(key).unwrap_or_else(|_| default.to_string())
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use std::sync::Mutex;
+
+    static ENV_LOCK: Mutex<()> = Mutex::new(());
+
+    #[test]
+    fn prefix_is_uppercased() {
+        let _lock = ENV_LOCK.lock();
+        std::env::set_var("MY_APP_DB_URL", "postgres://ok");
+        let cfg = ProcessConfig::new("my_app");
+        assert_eq!(cfg.get("DB_URL").unwrap(), "postgres://ok");
+        std::env::remove_var("MY_APP_DB_URL");
+    }
+
+    #[test]
+    fn get_returns_missing_env_when_not_set() {
+        let _lock = ENV_LOCK.lock();
+        let cfg = ProcessConfig::new("test");
+        let result = cfg.get("DOES_NOT_EXIST_XYZ");
+        assert!(result.is_err());
+        let err = result.unwrap_err();
+        assert!(matches!(err, ProcessError::MissingEnv(_)));
+        assert!(err.to_string().contains("TEST_DOES_NOT_EXIST_XYZ"));
+    }
+
+    #[test]
+    fn get_reads_bare_key_when_prefixed_not_set() {
+        let _lock = ENV_LOCK.lock();
+        std::env::set_var("DATABASE_URL", "postgres://bare");
+        let cfg = ProcessConfig::new("test");
+        let result = cfg.get("DATABASE_URL");
+        assert_eq!(result.unwrap(), "postgres://bare");
+        std::env::remove_var("DATABASE_URL");
+    }
+
+    #[test]
+    fn get_prefers_prefixed_key_over_bare() {
+        let _lock = ENV_LOCK.lock();
+        std::env::set_var("DATABASE_URL", "postgres://bare");
+        std::env::set_var("TEST_DATABASE_URL", "postgres://prefixed");
+        let cfg = ProcessConfig::new("test");
+        let result = cfg.get("DATABASE_URL");
+        assert_eq!(result.unwrap(), "postgres://prefixed");
+        std::env::remove_var("DATABASE_URL");
+        std::env::remove_var("TEST_DATABASE_URL");
+    }
+
+    #[test]
+    fn get_or_returns_default_when_not_set() {
+        let cfg = ProcessConfig::new("test");
+        let val: u32 = cfg.get_or("PORT", 8080u32);
+        assert_eq!(val, 8080);
+    }
+
+    #[test]
+    fn get_or_returns_parsed_value_when_set() {
+        let _lock = ENV_LOCK.lock();
+        std::env::set_var("TEST_PORT", "3000");
+        let cfg = ProcessConfig::new("test");
+        let val: u16 = cfg.get_or("PORT", 8080u16);
+        assert_eq!(val, 3000);
+        std::env::remove_var("TEST_PORT");
+    }
+
+    #[test]
+    fn get_or_str_returns_default_when_not_set() {
+        let cfg = ProcessConfig::new("test");
+        let val = cfg.get_or_str("HOST", "127.0.0.1");
+        assert_eq!(val, "127.0.0.1");
+    }
+
+    #[test]
+    fn get_or_str_returns_value_when_set() {
+        let _lock = ENV_LOCK.lock();
+        std::env::set_var("TEST_HOST", "0.0.0.0");
+        let cfg = ProcessConfig::new("test");
+        let val = cfg.get_or_str("HOST", "127.0.0.1");
+        assert_eq!(val, "0.0.0.0");
+        std::env::remove_var("TEST_HOST");
+    }
+
+    #[test]
+    fn service_config_grpc_addr() {
+        let cfg = ServiceConfig {
+            grpc_host: "localhost".into(),
+            grpc_port: 50051,
+            database_url: "postgres://db".into(),
+            redis_url: "redis://cache".into(),
+        };
+        assert_eq!(cfg.grpc_addr(), "localhost:50051");
+    }
+}

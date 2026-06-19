@@ -52,3 +52,53 @@ impl From<std::io::Error> for ProcessError {
         ProcessError::Network(format!("I/O error: {e}"))
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn display_missing_env() {
+        let err = ProcessError::MissingEnv("DATABASE_URL".into());
+        assert_eq!(err.to_string(), "missing environment variable: DATABASE_URL");
+    }
+
+    #[test]
+    fn display_invalid_config() {
+        let err = ProcessError::InvalidConfig("bad port".into());
+        assert_eq!(err.to_string(), "invalid configuration: bad port");
+    }
+
+    #[test]
+    fn display_database() {
+        let err = ProcessError::Database("connection refused".into());
+        assert_eq!(err.to_string(), "database error: connection refused");
+    }
+
+    #[test]
+    fn display_network() {
+        let err = ProcessError::Network("timeout".into());
+        assert_eq!(err.to_string(), "network error: timeout");
+    }
+
+    #[test]
+    fn display_internal() {
+        let err = ProcessError::Internal("something broke".into());
+        assert_eq!(err.to_string(), "something broke");
+    }
+
+    #[test]
+    fn debug_output() {
+        let err = ProcessError::MissingEnv("X".into());
+        let debug = format!("{err:?}");
+        assert!(debug.contains("MissingEnv"));
+    }
+
+    #[test]
+    fn from_io_error() {
+        let io = std::io::Error::new(std::io::ErrorKind::NotFound, "file missing");
+        let err: ProcessError = io.into();
+        assert!(matches!(err, ProcessError::Network(_)));
+        assert!(err.to_string().contains("file missing"));
+    }
+}
