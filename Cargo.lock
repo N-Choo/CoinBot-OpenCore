@@ -342,7 +342,6 @@ dependencies = [
  "actix-governor",
  "actix-http",
  "actix-web",
- "anyhow",
  "common",
  "dotenvy",
  "ethers",
@@ -854,6 +853,7 @@ version = "0.1.0"
 dependencies = [
  "prost",
  "serde",
+ "sqlx",
  "thiserror 2.0.18",
  "tonic",
  "tonic-build",
@@ -5209,6 +5209,15 @@ checksum = "97d095ae15e245a057c8e8451bab9b3ee1e1f68e9ba2b4fbc18d0ac5237835f2"
 dependencies = [
  "pin-project",
  "tracing",
+]
+
+[[package]]
+name = "trade-engine"
+version = "0.1.0"
+dependencies = [
+ "common",
+ "share",
+ "tokio",
 ]
 
 [[package]]

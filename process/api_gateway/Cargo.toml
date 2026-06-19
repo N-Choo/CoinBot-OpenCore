@@ -7,7 +7,6 @@ edition = "2024"
 common = { path = "../../lib/common" }
 share = { path = "../../lib/share" }
 actix-web.workspace = true
-anyhow.workspace = true
 uuid.workspace = true
 serde.workspace = true
 log.workspace = true

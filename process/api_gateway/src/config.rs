@@ -1,7 +1,6 @@
 use actix_cors::Cors;
 use actix_web::http;
-use anyhow::{Context, Result};
-use std::env;
+use common::{ProcessConfig, ProcessError};
 
 #[derive(Debug, Clone)]
 pub struct AppConfig {
@@ -17,24 +16,19 @@ pub struct AppConfig {
 }
 
 impl AppConfig {
-    pub fn from_env() -> Result<Self> {
+    pub fn from_env() -> Result<Self, ProcessError> {
+        let cfg = ProcessConfig::new("api_gateway");
+
         Ok(Self {
-            ip: env::var("HOST").unwrap_or_else(|_| "127.0.0.1".to_string()),
-            port: env::var("TS_PORT")
-                .unwrap_or_else(|_| "3000".to_string())
-                .parse()
-                .context("TS_PORT must be a valid u16 number")?,
-            n_worker: env::var("N_WORKER")
-                .unwrap_or_else(|_| "4".to_string())
-                .parse()
-                .unwrap_or(4),
+            ip: cfg.get_or_str("HOST", "127.0.0.1"),
+            port: cfg.get_or("TS_PORT", 3000u16),
+            n_worker: cfg.get_or("N_WORKER", 4usize),
             n_queue: 100,
-            db_url: env::var("DATABASE_URL").context("Missing: DATABASE_URL")?,
-            api_key: env::var("API_KEY").context("Missing: API_KEY")?,
-            api_secret: env::var("API_SECRET").context("Missing: API_SECRET")?,
-            api_passphrase: env::var("API_PASSPHRASE").context("Missing: API_PASSPHRASE")?,
-            grpc_deposit: env::var("GRPC_DEPOSIT_ENDPOINT")
-                .unwrap_or_else(|_| "http://127.0.0.1:50051".to_string()),
+            db_url: cfg.get("DATABASE_URL")?,
+            api_key: cfg.get("API_KEY")?,
+            api_secret: cfg.get("API_SECRET")?,
+            api_passphrase: cfg.get("API_PASSPHRASE")?,
+            grpc_deposit: cfg.get_or_str("GRPC_DEPOSIT_ENDPOINT", "http://127.0.0.1:50051"),
         })
     }
 

@@ -5,11 +5,12 @@ use actix_web::{
     web,
 };
 use api_gateway::{config::AppConfig, routes::api_routes};
+use common::ProcessError;
 use dotenvy::dotenv;
 use share::logger::init_logger;
 
 #[actix_web::main]
-async fn main() -> anyhow::Result<()> {
+async fn main() -> Result<(), ProcessError> {
     dotenv().ok();
     init_logger();
 

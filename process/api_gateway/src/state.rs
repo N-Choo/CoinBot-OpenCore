@@ -1,8 +1,9 @@
 use std::time::Duration;
 
-use anyhow::{Context, Result};
+use common::ProcessError;
 use kucoin::client::rest::{Credentials, KuCoinClient};
-use sqlx::PgPool;
+use moka::future::Cache;
+use sqlx::{PgPool, migrate};
 use tonic::transport::Channel;
 
 use crate::config::AppConfig;
@@ -18,25 +19,19 @@ pub struct AppState {
 }
 
 impl AppState {
-    pub async fn new(config: &AppConfig) -> Result<Self> {
-        let db_pool = PgPool::connect(&config.db_url)
-            .await
-            .context("Failed to connect to the Database")?;
-
-        sqlx::migrate!("../migrations")
-            .run(&db_pool)
-            .await
-            .map_err(|e| anyhow::anyhow!("Failed to run database migrations: {e}"))?;
+    pub async fn new(config: &AppConfig) -> Result<Self, ProcessError> {
+        let db_pool = PgPool::connect(&config.db_url).await?;
+        migrate!("../migrations").run(&db_pool).await?;
 
         let nonce_cache = NonceCache::new(
-            moka::future::Cache::builder()
+            Cache::builder()
                 .max_capacity(250)
                 .time_to_live(Duration::from_secs(60 * 5))
                 .build(),
         );
 
         let session_cache = SessionCache::new(
-            moka::future::Cache::builder()
+            Cache::builder()
                 .max_capacity(250)
                 .time_to_live(Duration::from_secs(60 * 60))
                 .build(),
@@ -48,7 +43,7 @@ impl AppState {
         let kc_client = KuCoinClient::new(master_key);
 
         let grpc_deposit = Channel::from_shared(config.grpc_deposit.clone())
-            .context("Invalid gRPC endpoint")?
+            .map_err(|e| ProcessError::InvalidConfig(format!("Invalid gRPC endpoint: {e}")))?
             .connect_lazy();
 
         Ok(Self {

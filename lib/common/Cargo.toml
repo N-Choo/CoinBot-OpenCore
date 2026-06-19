@@ -7,6 +7,7 @@ edition = "2021"
 tonic = "0.12"
 prost = "0.13"
 serde = { version = "1", features = ["derive"] }
+sqlx.workspace = true
 thiserror.workspace = true
 
 [build-dependencies]

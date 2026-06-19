@@ -4,7 +4,7 @@ members = [
     "process/api_gateway",
     "lib/common",
     "lib/share",
-    "process/deposit-worker",
+    "process/deposit-worker", "process/trade-engine",
 ]
 
 [workspace.dependencies]
