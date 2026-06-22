@@ -1,4 +1,21 @@
+use sqlx::FromRow;
 use uuid::Uuid;
+
+#[derive(Debug, Clone, FromRow, serde::Serialize)]
+pub struct Contract {
+    pub id: Uuid,
+    pub user_uid: Uuid,
+    pub signature: String,
+    pub message: String,
+    pub nonce: String,
+    pub ticker: String,
+    pub amount: String,
+    pub sl_pct: f32,
+    pub tp_pct: f32,
+    pub status: String,
+    pub created_at: chrono::DateTime<chrono::Utc>,
+    pub updated_at: chrono::DateTime<chrono::Utc>,
+}
 
 pub struct Contracts;
 
@@ -23,7 +40,7 @@ impl Contracts {
         .bind(signature)
         .bind(message)
         .bind(nonce)
-        .bind(ticker)
+        .bind(ticker.to_uppercase())
         .bind(amount)
         .bind(sl_pct)
         .bind(tp_pct)
