@@ -1,8 +1,5 @@
-use std::time::Duration;
-
 use common::ProcessError;
 use kucoin::client::rest::{Credentials, KuCoinClient};
-use moka::future::Cache;
 use sqlx::{PgPool, migrate};
 use tonic::transport::Channel;
 
@@ -23,19 +20,8 @@ impl AppState {
         let db_pool = PgPool::connect(&config.db_url).await?;
         migrate!("../migrations").run(&db_pool).await?;
 
-        let nonce_cache = NonceCache::new(
-            Cache::builder()
-                .max_capacity(250)
-                .time_to_live(Duration::from_secs(60 * 5))
-                .build(),
-        );
-
-        let session_cache = SessionCache::new(
-            Cache::builder()
-                .max_capacity(250)
-                .time_to_live(Duration::from_secs(60 * 60))
-                .build(),
-        );
+        let nonce_cache = NonceCache::new(&config.nonce_redis_url).await;
+        let session_cache = SessionCache::new(&config.session_redis_url).await;
 
         let master_key =
             Credentials::new(&config.api_key, &config.api_secret, &config.api_passphrase);

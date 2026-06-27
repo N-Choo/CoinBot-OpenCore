@@ -10,7 +10,7 @@ actix-web.workspace = true
 uuid.workspace = true
 serde.workspace = true
 log.workspace = true
-moka.workspace = true
+
 sqlx.workspace = true
 ethers.workspace = true
 thiserror.workspace = true

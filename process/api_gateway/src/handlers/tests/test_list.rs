@@ -8,12 +8,18 @@ mod tests {
     use crate::handlers::user::auth::{NonceCache, SessionCache};
     use crate::routes::api_routes;
 
-    fn setup_session_cache() -> SessionCache {
-        SessionCache::new(moka::future::Cache::new(100))
+    fn redis_base() -> String {
+        std::env::var("REDIS_URL").unwrap_or_else(|_| "redis://127.0.0.1:6379".to_string())
     }
 
-    fn setup_nonce_cache() -> NonceCache {
-        NonceCache::new(moka::future::Cache::new(100))
+    async fn setup_session_cache() -> SessionCache {
+        let url = format!("{}/0", redis_base().trim_end_matches('/'));
+        SessionCache::new(&url).await
+    }
+
+    async fn setup_nonce_cache() -> NonceCache {
+        let url = format!("{}/1", redis_base().trim_end_matches('/'));
+        NonceCache::new(&url).await
     }
 
     fn dummy_pool() -> PgPool {
@@ -21,18 +27,19 @@ mod tests {
     }
 
     fn real_pool() -> Option<PgPool> {
-        dotenvy::dotenv().ok();
         let url = std::env::var("DATABASE_URL").ok()?;
         PgPool::connect_lazy(&url).ok()
     }
 
     #[actix_web::test]
     async fn test_list_unauthorized() {
+        let session_cache = setup_session_cache().await;
+        let nonce_cache = setup_nonce_cache().await;
         let app = test::init_service(
             App::new()
                 .app_data(web::Data::new(dummy_pool()))
-                .app_data(web::Data::new(setup_session_cache()))
-                .app_data(web::Data::new(setup_nonce_cache()))
+                .app_data(web::Data::new(session_cache))
+                .app_data(web::Data::new(nonce_cache))
                 .configure(api_routes),
         )
         .await;
@@ -48,17 +55,18 @@ mod tests {
     async fn test_list_no_user_returns_empty() {
         let Some(pool) = real_pool() else { return };
 
-        let session_cache = setup_session_cache();
+        let session_cache = setup_session_cache().await;
+        let nonce_cache = setup_nonce_cache().await;
         let wallet = "0x0000000000000000000000000000000000000000";
         session_cache
-            .insert("test_token".into(), wallet.into())
+            .insert("test_list_no_user_token".into(), wallet.into())
             .await;
 
         let app = test::init_service(
             App::new()
                 .app_data(web::Data::new(pool))
                 .app_data(web::Data::new(session_cache))
-                .app_data(web::Data::new(setup_nonce_cache()))
+                .app_data(web::Data::new(nonce_cache))
                 .configure(api_routes),
         )
         .await;
@@ -67,7 +75,7 @@ mod tests {
             .uri("/api/transactions")
             .cookie(actix_web::cookie::Cookie::new(
                 "session_token",
-                "test_token",
+                "test_list_no_user_token",
             ))
             .to_request();
         let resp = test::call_service(&app, req).await;
@@ -80,11 +88,13 @@ mod tests {
             .unwrap()
             .connect_lazy();
 
+        let session_cache = setup_session_cache().await;
+        let nonce_cache = setup_nonce_cache().await;
         let app = test::init_service(
             App::new()
                 .app_data(web::Data::new(dummy_pool()))
-                .app_data(web::Data::new(setup_session_cache()))
-                .app_data(web::Data::new(setup_nonce_cache()))
+                .app_data(web::Data::new(session_cache))
+                .app_data(web::Data::new(nonce_cache))
                 .app_data(web::Data::new(channel))
                 .configure(api_routes),
         )
@@ -100,10 +110,12 @@ mod tests {
 
     #[actix_web::test]
     async fn test_auth_challenge_invalid_wallet() {
+        let session_cache = setup_session_cache().await;
+        let nonce_cache = setup_nonce_cache().await;
         let app = test::init_service(
             App::new()
-                .app_data(web::Data::new(setup_session_cache()))
-                .app_data(web::Data::new(setup_nonce_cache()))
+                .app_data(web::Data::new(session_cache))
+                .app_data(web::Data::new(nonce_cache))
                 .configure(api_routes),
         )
         .await;
@@ -117,10 +129,12 @@ mod tests {
 
     #[actix_web::test]
     async fn test_auth_verify_no_session() {
+        let session_cache = setup_session_cache().await;
+        let nonce_cache = setup_nonce_cache().await;
         let app = test::init_service(
             App::new()
-                .app_data(web::Data::new(setup_session_cache()))
-                .app_data(web::Data::new(setup_nonce_cache()))
+                .app_data(web::Data::new(session_cache))
+                .app_data(web::Data::new(nonce_cache))
                 .configure(api_routes),
         )
         .await;
@@ -134,10 +148,12 @@ mod tests {
 
     #[actix_web::test]
     async fn test_logout_no_session() {
+        let session_cache = setup_session_cache().await;
+        let nonce_cache = setup_nonce_cache().await;
         let app = test::init_service(
             App::new()
-                .app_data(web::Data::new(setup_session_cache()))
-                .app_data(web::Data::new(setup_nonce_cache()))
+                .app_data(web::Data::new(session_cache))
+                .app_data(web::Data::new(nonce_cache))
                 .configure(api_routes),
         )
         .await;

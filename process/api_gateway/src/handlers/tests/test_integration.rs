@@ -7,6 +7,10 @@ mod tests {
     use crate::handlers::user::auth::{NonceCache, SessionCache};
     use crate::routes::api_routes;
 
+    fn redis_base() -> String {
+        std::env::var("REDIS_URL").unwrap_or_else(|_| "redis://127.0.0.1:6379".to_string())
+    }
+
     async fn create_test_app() -> impl actix_web::dev::Service<
         actix_http::Request,
         Response = actix_web::dev::ServiceResponse<impl actix_web::body::MessageBody>,
@@ -23,16 +27,16 @@ mod tests {
             .supports_credentials()
             .max_age(3600);
 
+        let base = redis_base().trim_end_matches('/').to_string();
+        let nonce_cache = NonceCache::new(&format!("{}/1", base)).await;
+        let session_cache = SessionCache::new(&format!("{}/0", base)).await;
+
         test::init_service(
             App::new()
                 .wrap(cors)
                 .wrap(NormalizePath::trim())
-                .app_data(web::Data::new(NonceCache::new(moka::future::Cache::new(
-                    100,
-                ))))
-                .app_data(web::Data::new(SessionCache::new(moka::future::Cache::new(
-                    100,
-                ))))
+                .app_data(web::Data::new(nonce_cache))
+                .app_data(web::Data::new(session_cache))
                 .configure(api_routes),
         )
         .await

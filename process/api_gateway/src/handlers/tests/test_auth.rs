@@ -16,9 +16,14 @@ mod tests {
         signers::{LocalWallet, Signer},
     };
 
-    fn setup_caches() -> (NonceCache, SessionCache) {
-        let nonce_cache = NonceCache::new(moka::future::Cache::new(100));
-        let session_cache = SessionCache::new(moka::future::Cache::new(100));
+    fn redis_base() -> String {
+        std::env::var("REDIS_URL").unwrap_or_else(|_| "redis://127.0.0.1:6379".to_string())
+    }
+
+    async fn setup_caches() -> (NonceCache, SessionCache) {
+        let base = redis_base().trim_end_matches('/').to_string();
+        let nonce_cache = NonceCache::new(&format!("{}/1", base)).await;
+        let session_cache = SessionCache::new(&format!("{}/0", base)).await;
         (nonce_cache, session_cache)
     }
 
@@ -30,7 +35,7 @@ mod tests {
         let nonce = "test_nonce";
         let signature = wallet.sign_message(nonce).await.unwrap();
 
-        let (nonce_cache, session_cache) = setup_caches();
+        let (nonce_cache, session_cache) = setup_caches().await;
         let nonce_cache_data = web::Data::new(nonce_cache.clone());
         let session_cache_data = web::Data::new(session_cache.clone());
 
@@ -74,7 +79,7 @@ mod tests {
         let wallet = LocalWallet::new(&mut seeded_rng);
         let wallet_address = format!("0x{:x}", wallet.address()).to_lowercase();
 
-        let (nonce_cache, session_cache) = setup_caches();
+        let (nonce_cache, session_cache) = setup_caches().await;
 
         nonce_cache
             .insert(wallet_address.clone(), "correct_nonce".to_string())
@@ -103,7 +108,7 @@ mod tests {
 
     #[actix_web::test]
     async fn test_post_auth_invalid_signature() {
-        let (nonce_cache, session_cache) = setup_caches();
+        let (nonce_cache, session_cache) = setup_caches().await;
 
         let payload = VerifySignaturRequest {
             signature: "not-a-hex-string".to_string(),
@@ -125,9 +130,9 @@ mod tests {
 
     #[actix_web::test]
     async fn test_logout() {
-        let (_, session_cache) = setup_caches();
+        let (_, session_cache) = setup_caches().await;
 
-        let token = "test_token";
+        let token = "test_logout_token";
         let wallet_address = "0x1234567890abcdef".to_string();
         session_cache
             .insert(token.to_string(), wallet_address.clone())
@@ -148,9 +153,9 @@ mod tests {
 
     #[actix_web::test]
     async fn test_verify_session_ok() {
-        let (_, session_cache) = setup_caches();
+        let (_, session_cache) = setup_caches().await;
 
-        let token = "test_token";
+        let token = "test_verify_session_ok_token";
         let wallet_address = "0x1234567890abcdef".to_string();
         session_cache
             .insert(token.to_string(), wallet_address.clone())
@@ -173,7 +178,7 @@ mod tests {
 
     #[actix_web::test]
     async fn test_verify_session_invalid() {
-        let (_, session_cache) = setup_caches();
+        let (_, session_cache) = setup_caches().await;
 
         let req = test::TestRequest::default()
             .cookie(Cookie::build("session_token", "invalid_token").finish())

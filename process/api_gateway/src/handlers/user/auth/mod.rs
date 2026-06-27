@@ -1,51 +1,17 @@
+pub mod cache;
+
+pub use cache::{NonceCache, SessionCache};
+
 use std::str::FromStr;
 
 use actix_web::{HttpResponse, Responder, cookie::Cookie, web};
 use ethers::types::Signature;
+use ethers::utils::hash_message;
 use log::{error, info, warn};
-use moka::future::Cache;
 use uuid::Uuid;
 
-use crate::models::{
-    auth::{ChallengeQuery, ChallengeResponse, VerifySignaturRequest},
-    err::AppError,
-};
-
-#[derive(Clone)]
-pub struct SessionCache(Cache<String, String>);
-
-#[derive(Clone)]
-pub struct NonceCache(Cache<String, String>);
-
-impl SessionCache {
-    pub fn new(cache: Cache<String, String>) -> Self {
-        Self(cache)
-    }
-    pub async fn get(&self, k: &str) -> Option<String> {
-        self.0.get(k).await
-    }
-    pub async fn insert(&self, k: String, v: String) {
-        self.0.insert(k, v).await
-    }
-    pub async fn invalidate(&self, k: &str) {
-        self.0.invalidate(k).await
-    }
-}
-
-impl NonceCache {
-    pub fn new(cache: Cache<String, String>) -> Self {
-        Self(cache)
-    }
-    pub async fn get(&self, k: &str) -> Option<String> {
-        self.0.get(k).await
-    }
-    pub async fn insert(&self, k: String, v: String) {
-        self.0.insert(k, v).await
-    }
-    pub async fn invalidate(&self, k: &str) {
-        self.0.invalidate(k).await
-    }
-}
+use crate::models::auth::{ChallengeQuery, ChallengeResponse, VerifySignaturRequest};
+use crate::models::err::AppError;
 
 pub struct AuthController;
 
@@ -143,7 +109,8 @@ impl AuthController {
             Err(_) => return Err(AppError::Input("Invalid signature format".to_string())),
         };
 
-        let wallet_addr = match signature.recover(msg) {
+        let msg_hash = hash_message(msg);
+        let wallet_addr = match signature.recover(msg_hash) {
             Ok(addr) => addr,
             Err(e) => {
                 warn!("Signature recovery failed: {:?}", e);
