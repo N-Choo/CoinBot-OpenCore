@@ -22,19 +22,19 @@ async fn main() -> Result<(), ProcessError> {
     let pool = sqlx::PgPool::connect(&database_url).await?;
     sqlx::migrate!("../migrations").run(&pool).await?;
 
-    let api_key = cfg.get("API_KEY")?;
-    let api_secret = cfg.get("API_SECRET")?;
-    let api_passphrase = cfg.get("API_PASSPHRASE")?;
+    let api_key = cfg.get("KC_KEY")?;
+    let api_secret = cfg.get("KC_SECRET")?;
+    let api_passphrase = cfg.get("KC_PASSPHRASE")?;
     let kcc = KuCoinClient::new(Credentials::new(&api_key, &api_secret, &api_passphrase));
 
     let (tx, rx) = mpsc::channel::<DepositTask>(256);
-    let max_concurrent = cfg.get_or("DEPOSIT_WORKERS", 2usize);
+    let max_concurrent = cfg.get_or("N_WORKERS", 2usize);
     let semaphore = Arc::new(Semaphore::new(max_concurrent));
 
     run_dispatcher(pool.clone(), rx, semaphore.clone());
     spawn(run_deposit_sweeper(pool.clone(), kcc));
 
-    let addr = cfg.get_or_str("GRPC_ADDR", "[::1]:50051");
+    let addr = cfg.get("GRPC_ADDR")?;
     let (mut health_reporter, health_service) = health_reporter();
     health_reporter
         .set_serving::<DepositServiceServer<DepositServer>>()
