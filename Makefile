@@ -1,4 +1,4 @@
-PACKAGES = api-gateway share deposit
+PACKAGES = api-gateway share deposit trade-engine
 
 .PHONY: help clean ci clippy test fmt fmt-fix frontend-install frontend-lint frontend-lint-fix frontend-test frontend-build dev prod proto prod-build logs logs-backend test-api
 
@@ -46,7 +46,7 @@ clippy:
 	cargo clippy $(addprefix -p ,$(PACKAGES)) -- -D warnings
 
 test:
-	cargo test $(addprefix -p ,$(PACKAGES))
+	@docker compose up -d redis && cargo test $(addprefix -p ,$(PACKAGES)); st=$$?; docker compose stop redis; exit $$st
 
 frontend-install:
 	cd react && npm ci
@@ -67,13 +67,13 @@ clean:
 	docker compose down --rmi all -v
 
 dev:
-	docker compose up backend-dev deposit-worker frontend
+	docker compose up backend-dev deposit-worker frontend redis
 
 prod-build:
 	docker compose build deposit-worker-prod backend frontend-prod
 
 prod:
-	docker compose --profile prod up -d deposit-worker-prod backend frontend-prod
+	docker compose --profile prod up -d deposit-worker-prod backend frontend-prod redis
 
 logs:
 	docker compose logs -f

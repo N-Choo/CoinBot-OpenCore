@@ -5,8 +5,13 @@ edition = "2021"
 
 [dependencies]
 ethers.workspace = true
+log.workspace = true
+redis.workspace = true
 sqlx.workspace = true
 uuid.workspace = true
 chrono.workspace = true
 env_logger.workspace = true
 serde.workspace = true
+
+[dev-dependencies]
+tokio = { version = "1", features = ["full"] }
