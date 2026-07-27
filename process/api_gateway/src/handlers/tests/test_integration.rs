@@ -28,8 +28,12 @@ mod tests {
             .max_age(3600);
 
         let base = redis_base().trim_end_matches('/').to_string();
-        let nonce_cache = NonceCache::new(&format!("{}/1", base)).await;
-        let session_cache = SessionCache::new(&format!("{}/0", base)).await;
+        let nonce_cache = NonceCache::new(&format!("{}/1", base))
+            .await
+            .expect("Redis required for tests");
+        let session_cache = SessionCache::new(&format!("{}/0", base))
+            .await
+            .expect("Redis required for tests");
 
         test::init_service(
             App::new()

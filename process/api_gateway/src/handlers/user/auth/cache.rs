@@ -13,12 +13,10 @@ pub struct NonceCache {
 impl SessionCache {
     const TTL: u64 = 3600;
 
-    pub async fn new(redis_url: &str) -> Self {
-        Self {
-            cache: Cache::new(redis_url)
-                .await
-                .expect("Failed to connect to Redis"),
-        }
+    pub async fn new(redis_url: &str) -> Result<Self, redis::RedisError> {
+        Ok(Self {
+            cache: Cache::new(redis_url).await?,
+        })
     }
     pub async fn get(&self, k: &str) -> Option<String> {
         self.cache.get(k).await
@@ -34,12 +32,10 @@ impl SessionCache {
 impl NonceCache {
     const TTL: u64 = 300;
 
-    pub async fn new(redis_url: &str) -> Self {
-        Self {
-            cache: Cache::new(redis_url)
-                .await
-                .expect("Failed to connect to Redis"),
-        }
+    pub async fn new(redis_url: &str) -> Result<Self, redis::RedisError> {
+        Ok(Self {
+            cache: Cache::new(redis_url).await?,
+        })
     }
     pub async fn get(&self, k: &str) -> Option<String> {
         self.cache.get(k).await

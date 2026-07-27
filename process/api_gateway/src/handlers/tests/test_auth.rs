@@ -22,8 +22,12 @@ mod tests {
 
     async fn setup_caches() -> (NonceCache, SessionCache) {
         let base = redis_base().trim_end_matches('/').to_string();
-        let nonce_cache = NonceCache::new(&format!("{}/1", base)).await;
-        let session_cache = SessionCache::new(&format!("{}/0", base)).await;
+        let nonce_cache = NonceCache::new(&format!("{}/1", base))
+            .await
+            .expect("Redis required for tests");
+        let session_cache = SessionCache::new(&format!("{}/0", base))
+            .await
+            .expect("Redis required for tests");
         (nonce_cache, session_cache)
     }
 
