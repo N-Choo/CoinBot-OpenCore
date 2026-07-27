@@ -1,5 +1,4 @@
 use common::ProcessError;
-use kucoin::client::rest::{Credentials, KuCoinClient};
 use sqlx::{PgPool, migrate};
 use tonic::transport::Channel;
 
@@ -11,7 +10,6 @@ pub struct AppState {
     pub db_pool: PgPool,
     pub nonce_cache: NonceCache,
     pub session_cache: SessionCache,
-    pub kc_client: KuCoinClient,
     pub grpc_deposit: Channel,
 }
 
@@ -23,11 +21,6 @@ impl AppState {
         let nonce_cache = NonceCache::new(&config.nonce_redis_url).await;
         let session_cache = SessionCache::new(&config.session_redis_url).await;
 
-        let master_key =
-            Credentials::new(&config.api_key, &config.api_secret, &config.api_passphrase);
-
-        let kc_client = KuCoinClient::new(master_key);
-
         let grpc_deposit = Channel::from_shared(config.grpc_deposit.clone())
             .map_err(|e| ProcessError::InvalidConfig(format!("Invalid gRPC endpoint: {e}")))?
             .connect_lazy();
@@ -36,7 +29,6 @@ impl AppState {
             db_pool,
             nonce_cache,
             session_cache,
-            kc_client,
             grpc_deposit,
         })
     }

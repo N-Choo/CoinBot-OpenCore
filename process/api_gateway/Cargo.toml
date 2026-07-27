@@ -14,7 +14,6 @@ log.workspace = true
 sqlx.workspace = true
 ethers.workspace = true
 thiserror.workspace = true
-kucoin.workspace = true
 dotenvy.workspace = true
 actix-cors.workspace = true
 rand.workspace = true

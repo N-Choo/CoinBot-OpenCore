@@ -85,11 +85,11 @@ impl Contracts {
         if let Err(e) = share::db::contracts::Contracts::create(
             &pool,
             uid,
-            payload.signature.clone(),
-            payload.message.clone(),
-            payload.nonce.clone(),
-            settings.ticker,
-            settings.amount,
+            &payload.signature,
+            &payload.message,
+            &payload.nonce,
+            &settings.ticker,
+            &settings.amount,
             settings.sl_pct,
             settings.tp_pct,
         )

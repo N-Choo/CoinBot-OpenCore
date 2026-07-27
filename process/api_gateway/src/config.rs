@@ -11,37 +11,33 @@ pub struct AppConfig {
     pub db_url: String,
     pub session_redis_url: String,
     pub nonce_redis_url: String,
-    pub api_key: String,
-    pub api_secret: String,
-    pub api_passphrase: String,
     pub grpc_deposit: String,
+    pub allowed_origin: String,
 }
 
 impl AppConfig {
     pub fn from_env() -> Result<Self, ProcessError> {
         let cfg = ProcessConfig::new("api_gateway");
-        let redis_base = cfg.get_or_str("REDIS_URL", "redis://127.0.0.1:6379");
+
+        let redis_base = cfg.get("REDIS_URL")?.trim_end_matches('/').to_owned();
 
         Ok(Self {
-            ip: cfg.get_or_str("HOST", "127.0.0.1"),
-            port: cfg.get_or("TS_PORT", 3000u16),
-            n_worker: cfg.get_or("N_WORKER", 4usize),
-            n_queue: 100,
+            ip: cfg.get("HOST")?,
+            port: cfg.get_parsed("PORT")?,
+            n_worker: cfg.get_parsed("N_WORKER")?,
+            n_queue: cfg.get_parsed("N_QUEUE")?,
             db_url: cfg.get("DATABASE_URL")?,
-            session_redis_url: format!("{}/0", redis_base.trim_end_matches('/')),
-            nonce_redis_url: format!("{}/1", redis_base.trim_end_matches('/')),
-            api_key: cfg.get("API_KEY")?,
-            api_secret: cfg.get("API_SECRET")?,
-            api_passphrase: cfg.get("API_PASSPHRASE")?,
-            grpc_deposit: cfg.get_or_str("GRPC_DEPOSIT_ENDPOINT", "http://127.0.0.1:50051"),
+            session_redis_url: format!("{redis_base}/0"),
+            nonce_redis_url: format!("{redis_base}/1"),
+            grpc_deposit: cfg.get("GRPC_DEPOSIT_ENDPOINT")?,
+            allowed_origin: cfg.get("ALLOWED_ORIGIN")?,
         })
     }
 
-    /// Helper method to build a fresh Cors instance for each worker
     pub fn get_cors(&self) -> Cors {
         Cors::default()
-            .allowed_origin("http://127.0.0.1:5173") // Use the IP/Port Axios is calling from
-            .allowed_methods(vec!["GET", "POST"])
+            .allowed_origin(&self.allowed_origin)
+            .allowed_methods(vec!["GET", "POST", "OPTIONS"])
             .allowed_headers(vec![
                 http::header::AUTHORIZATION,
                 http::header::ACCEPT,
