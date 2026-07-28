@@ -7,6 +7,8 @@ edition = "2021"
 tonic = "0.12"
 prost = "0.13"
 serde = { version = "1", features = ["derive"] }
+redis.workspace = true
+serde_json.workspace = true
 sqlx.workspace = true
 thiserror.workspace = true
 

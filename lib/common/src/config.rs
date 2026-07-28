@@ -57,6 +57,18 @@ impl ProcessConfig {
     pub fn get_or_str(&self, key: &str, default: &str) -> String {
         self.get(key).unwrap_or_else(|_| default.to_string())
     }
+
+    /// Get and parse a typed value, failing with a descriptive error.
+    pub fn get_parsed<T: std::str::FromStr>(&self, key: &str) -> Result<T, ProcessError> {
+        let raw = self.get(key)?;
+        raw.parse().map_err(|_| {
+            ProcessError::InvalidConfig(format!(
+                "{} must be a valid {}",
+                key,
+                std::any::type_name::<T>()
+            ))
+        })
+    }
 }
 
 #[cfg(test)]

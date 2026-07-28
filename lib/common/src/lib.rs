@@ -1,8 +1,13 @@
-mod proto {
+mod wallet {
     tonic::include_proto!("wallet");
 }
 
-pub use proto::*;
+mod analyzer {
+    tonic::include_proto!("analyzer");
+}
+
+pub use wallet::*;
+pub use analyzer::*;
 
 mod config;
 mod error;

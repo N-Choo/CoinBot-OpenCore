@@ -53,6 +53,18 @@ impl From<std::io::Error> for ProcessError {
     }
 }
 
+impl From<redis::RedisError> for ProcessError {
+    fn from(e: redis::RedisError) -> Self {
+        ProcessError::Internal(format!("redis error: {e}"))
+    }
+}
+
+impl From<serde_json::Error> for ProcessError {
+    fn from(e: serde_json::Error) -> Self {
+        ProcessError::Internal(format!("serialization error: {e}"))
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
