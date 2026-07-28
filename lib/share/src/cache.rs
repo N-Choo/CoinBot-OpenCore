@@ -30,4 +30,11 @@ impl Cache {
             log::error!("Redis del failed: {e}");
         }
     }
+
+    pub async fn publish(&self, channel: &str, msg: &str) {
+        let mut conn = self.conn.clone();
+        if let Err(e) = conn.publish::<&str, &str, ()>(channel, msg).await {
+            log::error!("Redis publish failed: {e}");
+        }
+    }
 }

@@ -52,7 +52,7 @@ impl ContractFilter {
 
     pub async fn execute_tickers(&self, pool: &PgPool) -> Result<Vec<String>, sqlx::Error> {
         use sqlx::QueryBuilder;
-        let mut builder = QueryBuilder::new("SELECT ticker FROM contracts WHERE 1=1");
+        let mut builder = QueryBuilder::new("SELECT DISTINCT ticker FROM contracts WHERE 1=1");
 
         if let Some(ref uid) = self.user_uid {
             builder.push(" AND user_uid = ").push_bind(uid);
@@ -64,7 +64,6 @@ impl ContractFilter {
             builder.push(" AND ticker = ").push_bind(ticker);
         }
 
-        builder.push(" ORDER BY created_at DESC");
         builder.build_query_scalar().fetch_all(pool).await
     }
 }

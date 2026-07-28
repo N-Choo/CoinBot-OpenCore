@@ -1,6 +1,8 @@
 use sqlx::FromRow;
 use uuid::Uuid;
 
+pub struct Contracts;
+
 #[derive(Debug, Clone, FromRow, serde::Serialize)]
 pub struct Contract {
     pub id: Uuid,
@@ -17,18 +19,16 @@ pub struct Contract {
     pub updated_at: chrono::DateTime<chrono::Utc>,
 }
 
-pub struct Contracts;
-
 impl Contracts {
     #[allow(clippy::too_many_arguments)]
     pub async fn create(
         pool: &sqlx::PgPool,
         user_uid: Uuid,
-        signature: String,
-        message: String,
-        nonce: String,
-        ticker: String,
-        amount: String,
+        signature: &str,
+        message: &str,
+        nonce: &str,
+        ticker: &str,
+        amount: &str,
         sl_pct: f32,
         tp_pct: f32,
     ) -> Result<(), sqlx::Error> {
