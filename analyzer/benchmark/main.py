@@ -90,7 +90,6 @@ def run_benchmark(
     atr_high_adjust: float = 1.5,
     atr_sl_max_pct: float = 0.0,
     allow_pyramiding: bool = False,
-    warmup: int = 0,
 ) -> tuple[list[dict[str, Any]], dict[str, Any]]:
     from analyzer.indicators.rsi import detect_rsi_divergences
 
@@ -102,7 +101,7 @@ def run_benchmark(
     div_columns = ["Reg_Bullish_Div", "Reg_Bearish_Div",
                    "Hid_Bullish_Div", "Hid_Bearish_Div"]
 
-    for i in range(max(rsi_period, warmup), len(df) - forward_days):
+    for i in range(rsi_period, len(df) - forward_days):
         df_slice = df.iloc[: i + 1]
         div_df = detect_rsi_divergences(
             df_slice, rsi_period=rsi_period, order=rsi_order
@@ -376,14 +375,11 @@ def main() -> None:
             )
             continue
 
-        # limit to the configured benchmark window + SMA warmup
+        # limit to the configured benchmark window
         needed = cfg.benchmark_days + cfg.benchmark_forward_days
-        warmup = cfg.sma_period if cfg.sma_enabled else 0
-        total = needed + warmup
-        if len(df) > total:
-            df = df.iloc[-total:]
-            logger.info("  %s  using last %d candles (warmup=%d)",
-                         ticker, len(df), warmup)
+        if len(df) > needed:
+            df = df.iloc[-needed:]
+            logger.info("  %s  using last %d candles", ticker, len(df))
 
         signals, summary = run_benchmark(
             df,
@@ -400,7 +396,6 @@ def main() -> None:
             atr_high_adjust=cfg.atr_high_adjust,
             atr_sl_max_pct=cfg.atr_sl_max_pct,
             allow_pyramiding=cfg.allow_pyramiding,
-            warmup=warmup,
         )
 
         print_ledger(signals, summary, cfg.benchmark_forward_days)
