@@ -2,13 +2,36 @@
 
 from __future__ import annotations
 
+import logging
+import os
 from typing import Any
 
 import pandas as pd
 from pandas import Timestamp
 
+from analyzer.config import Config
+from analyzer.fetchers.kucoin import KuCoinFetchError, fetch_klines
 from analyzer.indicators.rsi import detect_rsi_divergences
 from analyzer.indicators.sma import calculate_sma
+
+
+DEFAULT_TICKERS = ["BTC-USDT", "ETH-USDT", "SOL-USDT"]
+
+
+def _load_dotenv(path: str = ".env") -> None:
+    try:
+        with open(path) as f:
+            for line in f:
+                line = line.strip()
+                if not line or line.startswith("#") or "=" not in line:
+                    continue
+                key, _, val = line.partition("=")
+                key = key.strip()
+                val = val.strip().strip("\"'")
+                if key not in os.environ:
+                    os.environ[key] = val
+    except FileNotFoundError:
+        pass
 
 
 def _score_signal(
@@ -202,3 +225,63 @@ def print_ledger(
     )
     print(f"{buy_rate}  |  {sell_rate}")
     print(W)
+
+
+def main() -> None:
+    _load_dotenv()
+    cfg = Config()
+
+    logging.basicConfig(
+        level=logging.INFO,
+        format="%(asctime)s  %(levelname)-7s  %(message)s",
+        datefmt="%H:%M:%S",
+    )
+    logger = logging.getLogger("benchmark")
+
+    logger.info(
+        "benchmark started  days=%d  forward=%dd",
+        cfg.benchmark_days,
+        cfg.benchmark_forward_days,
+    )
+    logger.info(
+        "rsi period=%d  order=%d  sma=%s",
+        cfg.rsi_period,
+        cfg.rsi_divergence_order,
+        "on" if cfg.sma_enabled else "off",
+    )
+
+    for ticker in DEFAULT_TICKERS:
+        logger.info("fetching %s klines...", ticker)
+        try:
+            df = fetch_klines(
+                ticker,
+                timeframe=cfg.kucoin_timeframe,
+                base_url=cfg.kuCoin_base_url,
+            )
+        except KuCoinFetchError as e:
+            logger.error("  skip %s - fetch error: %s", ticker, e)
+            continue
+
+        if len(df) < cfg.rsi_period + cfg.benchmark_forward_days + 1:
+            logger.warning(
+                "  skip %s - only %d candles", ticker, len(df)
+            )
+            continue
+
+        signals, summary = run_benchmark(
+            df,
+            ticker=ticker,
+            rsi_period=cfg.rsi_period,
+            rsi_order=cfg.rsi_divergence_order,
+            forward_days=cfg.benchmark_forward_days,
+            sma_enabled=cfg.sma_enabled,
+            sma_period=cfg.sma_period,
+        )
+
+        print_ledger(signals, summary, cfg.benchmark_forward_days)
+
+    logger.info("done")
+
+
+if __name__ == "__main__":
+    main()
