@@ -64,21 +64,27 @@ def analyze_ticker(
     sell_n = sum(1 for s in signals if s.action == "sell")
 
     if signals:
-        reasons = ", ".join(
-            f"{s.action}({s.confidence:.1f})" for s in signals
-        )
         logger.info(
             "  ✓ %-12s  price=%-12s  rsi=%-5.1f  "
-            "candles=%-4d  buy=%-2d  sell=%-2d  [%s]  %dms",
+            "candles=%-4d  buy=%-2d  sell=%-2d  %dms",
             ticker,
             f"${latest_close:,.2f}",
             latest_rsi,
             len(df),
             buy_n,
             sell_n,
-            reasons,
             round(elapsed),
         )
+        for s in signals:
+            arrow = "▲" if s.action == "buy" else "▼"
+            logger.info(
+                "    %s  %-4s  conf=%.1f  @$%.2f  %s",
+                arrow,
+                s.action.upper(),
+                s.confidence,
+                s.entry_price,
+                s.reason,
+            )
     else:
         logger.info(
             "  ✓ %-12s  price=%-12s  rsi=%-5.1f  candles=%-4d  no signals  %dms",
