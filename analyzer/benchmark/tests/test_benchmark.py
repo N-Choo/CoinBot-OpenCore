@@ -1,3 +1,6 @@
+import numpy as np
+from typing import Any
+
 import pytest
 from analyzer.benchmark.main import _score_signal
 
@@ -92,3 +95,51 @@ def test_sma_filter_blocks_sell_above_sma():
 def test_sma_filter_short_window_returns_true():
     close = pd.Series([100.0] * 3)
     assert _apply_sma_filter(close, idx=2, action="buy", sma_period=5) is True
+
+
+from analyzer.benchmark.main import run_benchmark
+
+
+def test_run_benchmark_on_synthetic_data():
+    """End-to-end: inject a known bullish divergence and verify it scores a buy hit."""
+    rng = np.random.RandomState(42)
+    n = 130
+    noise = rng.randn(n) * 0.15
+
+    close = np.zeros(n)
+    for i in range(n):
+        if i < 55:
+            close[i] = 100 - i * 0.5 + noise[i]
+        elif i < 60:
+            close[i] = close[i - 1] + 0.5 + noise[i]
+        elif i < 85:
+            close[i] = close[i - 1] - 0.3 + noise[i]
+        elif i < 97:
+            close[i] = close[i - 1] - 0.05 + noise[i]
+        else:
+            close[i] = close[i - 1] + 0.6 + noise[i]
+
+    high = close + 0.8
+    low = close - 0.8
+    low[96] = low[95] - 3.0
+
+    df = pd.DataFrame({"High": high, "Low": low, "Close": close})
+
+    signals, summary = run_benchmark(
+        df,
+        ticker="TEST-USDT",
+        rsi_period=14,
+        rsi_order=10,
+        forward_days=7,
+        sma_enabled=False,
+        sma_period=20,
+    )
+
+    buy_signals = [s for s in signals if s["action"] == "buy"]
+    assert len(buy_signals) >= 1
+
+    buy_hits = [s for s in buy_signals if s["hit"] is True]
+    assert len(buy_hits) >= 1
+
+    assert summary["buy_total"] >= 1
+    assert summary["buy_hits"] >= 1
