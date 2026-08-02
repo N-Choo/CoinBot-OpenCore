@@ -63,3 +63,32 @@ def test_divergence_label_no_match_returns_unknown():
     row_data = {"Reg_Bullish_Div": 0, "Reg_Bearish_Div": 0,
                 "Hid_Bullish_Div": 0, "Hid_Bearish_Div": 0}
     assert _make_divergence_label(row_data) == "unknown"
+
+
+import pandas as pd
+from analyzer.benchmark.main import _apply_sma_filter
+
+
+def test_sma_filter_allows_buy_above_sma():
+    close = pd.Series([100.0] * 20 + [110.0])
+    assert _apply_sma_filter(close, idx=20, action="buy", sma_period=5) is True
+
+
+def test_sma_filter_blocks_buy_below_sma():
+    close = pd.Series([100.0] * 20 + [90.0])
+    assert _apply_sma_filter(close, idx=20, action="buy", sma_period=5) is False
+
+
+def test_sma_filter_allows_sell_below_sma():
+    close = pd.Series([100.0] * 20 + [90.0])
+    assert _apply_sma_filter(close, idx=20, action="sell", sma_period=5) is True
+
+
+def test_sma_filter_blocks_sell_above_sma():
+    close = pd.Series([100.0] * 20 + [110.0])
+    assert _apply_sma_filter(close, idx=20, action="sell", sma_period=5) is False
+
+
+def test_sma_filter_short_window_returns_true():
+    close = pd.Series([100.0] * 3)
+    assert _apply_sma_filter(close, idx=2, action="buy", sma_period=5) is True
