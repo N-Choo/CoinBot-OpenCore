@@ -1,6 +1,6 @@
 PACKAGES = api-gateway share deposit trade-engine
 
-.PHONY: help clean ci clippy test fmt fmt-fix frontend-install frontend-lint frontend-lint-fix frontend-test frontend-build dev prod proto prod-build logs logs-backend test-api
+.PHONY: help clean ci clippy test fmt fmt-fix frontend-install frontend-lint frontend-lint-fix frontend-test frontend-build dev prod proto prod-build logs logs-backend test-api trade analyzer-test
 
 help:
 	@echo "Usage: make <target>"
@@ -10,6 +10,7 @@ help:
 	@echo ""
 	@echo "Development"
 	@echo "  dev          Start deposit-worker + backend-dev + frontend"
+	@echo "  trade        Run trade-engine + Python analyzer"
 	@echo "  test-api     Run curl tests against the API"
 	@echo "  logs         Follow logs from all services"
 	@echo "  logs-backend Follow backend logs"
@@ -22,7 +23,8 @@ help:
 	@echo "  fmt          Check formatting"
 	@echo "  fmt-fix      Fix formatting"
 	@echo "  clippy       Lint (deny warnings)"
-	@echo "  test         Run unit tests"
+	@echo "  test         Run Rust unit tests"
+	@echo "  analyzer-test Run Python analyzer unit tests"
 	@echo "  proto        Compile wallet.proto (verify proto only)"
 	@echo ""
 	@echo "Frontend"
@@ -34,7 +36,7 @@ help:
 	@echo "CI"
 	@echo "  ci           Run full CI pipeline (fmt + clippy + test + lint + build)"
 
-ci: fmt-fix clippy test frontend-lint-fix frontend-test frontend-build
+ci: fmt-fix clippy test analyzer-test frontend-lint-fix frontend-test frontend-build
 
 fmt:
 	cargo fmt $(addprefix -p ,$(PACKAGES)) -- --check
@@ -47,6 +49,9 @@ clippy:
 
 test:
 	@docker compose up -d redis && cargo test $(addprefix -p ,$(PACKAGES)); st=$$?; docker compose stop redis; exit $$st
+
+analyzer-test:
+	@cd analyzer && python3 -m pytest . -v
 
 frontend-install:
 	cd react && npm ci
@@ -67,13 +72,13 @@ clean:
 	docker compose down --rmi all -v
 
 dev:
-	docker compose up backend-dev deposit-worker frontend redis
+	docker compose up backend-dev deposit-worker trade-engine frontend redis
 
 prod-build:
 	docker compose build deposit-worker-prod backend frontend-prod
 
 prod:
-	docker compose --profile prod up -d deposit-worker-prod backend frontend-prod redis
+	docker compose --profile prod up -d deposit-worker-prod backend frontend-prod trade-engine-prod analyzer redis
 
 logs:
 	docker compose logs -f
@@ -83,6 +88,12 @@ logs-backend:
 
 test-api:
 	./scripts/test-api.sh
+
+trade:
+	@docker compose up -d redis && \
+		(REDIS_URL=redis://127.0.0.1:6379 cargo run -p trade-engine & \
+		REDIS_HOST=127.0.0.1 python3 -m analyzer.main); \
+		st=$$?; docker compose stop redis; exit $$st
 
 proto:
 	cargo build -p common --timings
