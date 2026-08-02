@@ -1,8 +1,29 @@
 import json
 import logging
+import os
 import time
 
 import redis
+
+
+def _load_dotenv(path: str = ".env") -> None:
+    """Load key=value pairs from a .env file into os.environ."""
+    try:
+        with open(path) as f:
+            for line in f:
+                line = line.strip()
+                if not line or line.startswith("#") or "=" not in line:
+                    continue
+                key, _, val = line.partition("=")
+                key = key.strip()
+                val = val.strip().strip("\"'")
+                if key not in os.environ:
+                    os.environ[key] = val
+    except FileNotFoundError:
+        pass
+
+
+_load_dotenv()
 
 from analyzer.config import Config
 from analyzer.fetchers.kucoin import KuCoinFetchError, fetch_klines
@@ -51,6 +72,8 @@ def analyze_ticker(ticker: str, cfg: Config, redis_client: redis.Redis) -> None:
         rsi_period=cfg.rsi_period,
         rsi_order=cfg.rsi_divergence_order,
         price_diff_threshold=cfg.price_diff_threshold,
+        sma_enabled=cfg.sma_enabled,
+        sma_period=cfg.sma_period,
     )
 
     t1 = time.monotonic()
@@ -125,6 +148,11 @@ def main() -> None:
         "  rsi      period=%d  order=%d",
         cfg.rsi_period,
         cfg.rsi_divergence_order,
+    )
+    logger.info(
+        "  sma      enabled=%s  period=%d",
+        "yes" if cfg.sma_enabled else "no",
+        cfg.sma_period,
     )
     logger.info(BAR)
     logger.info("")

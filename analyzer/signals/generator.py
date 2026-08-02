@@ -1,6 +1,7 @@
 import pandas as pd
 
 from analyzer.indicators.rsi import detect_rsi_divergences
+from analyzer.indicators.sma import calculate_sma
 from analyzer.models.types import Signal
 
 
@@ -19,11 +20,18 @@ def generate_signals(
     rsi_period: int = 14,
     rsi_order: int = 5,
     price_diff_threshold: float = 0.05,
+    sma_enabled: bool = False,
+    sma_period: int = 20,
 ) -> list[Signal]:
     """Generate ONE trading signal from the most recent RSI divergence.
 
     Scans divergence results backwards and returns only the latest
     actionable signal. Regular divergences take priority over hidden.
+
+    When ``sma_enabled`` is True, a trend filter is applied via a Simple
+    Moving Average: buy signals are only kept when price trades above the
+    SMA (uptrend), and sell signals only when price trades below the SMA
+    (downtrend).
     """
     result = detect_rsi_divergences(df, rsi_period=rsi_period, order=rsi_order)
 
@@ -76,6 +84,18 @@ def generate_signals(
 
     if not candidates:
         return []
+
+    if sma_enabled and len(df) >= sma_period:
+        sma = calculate_sma(df["Close"], period=sma_period).iloc[-1]
+        trend_filtered = [
+            cand
+            for cand in candidates
+            if (cand[1] == "buy" and latest_close > sma)
+            or (cand[1] == "sell" and latest_close < sma)
+        ]
+        if not trend_filtered:
+            return []
+        candidates = trend_filtered
 
     candidates.sort(key=lambda x: x[0], reverse=True)
     best = candidates[0]

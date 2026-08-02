@@ -82,3 +82,41 @@ def test_generate_signals_returns_list_of_signals():
         assert hasattr(s, "action")
         assert s.action in ("buy", "sell")
         assert 0.0 <= s.confidence <= 1.0
+
+
+def test_sma_filter_disabled_keeps_signals():
+    np.random.seed(10)
+    n = 200
+    close = np.linspace(100, 80, n)
+    close += np.random.randn(n) * 0.5
+    high = close + np.random.rand(n)
+    low = close - np.random.rand(n)
+    low[190] = low[189] - 5.0
+    close[190] = close[189] + 1.0
+
+    df = pd.DataFrame({"High": high, "Low": low, "Close": close})
+    signals = generate_signals(
+        df, ticker="BTC-USDT", sma_enabled=False, sma_period=20
+    )
+    assert len(signals) <= 1
+    assert len([s for s in signals if s.action == "buy"]) >= 1
+
+
+def test_sma_filter_blocks_buy_in_downtrend():
+    """Bullish divergence in a strong downtrend is rejected by SMA filter."""
+    np.random.seed(10)
+    n = 200
+    close = np.linspace(100, 80, n)
+    close += np.random.randn(n) * 0.5
+    high = close + np.random.rand(n)
+    low = close - np.random.rand(n)
+    low[190] = low[189] - 5.0
+    close[190] = close[189] + 1.0
+
+    df = pd.DataFrame({"High": high, "Low": low, "Close": close})
+    sma_period = 50
+    signals = generate_signals(
+        df, ticker="BTC-USDT", sma_enabled=True, sma_period=sma_period
+    )
+    for s in signals:
+        assert s.action == "sell", "buy suppressed in downtrend by SMA filter"

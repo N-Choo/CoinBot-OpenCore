@@ -5,5 +5,9 @@ edition = "2024"
 
 [dependencies]
 common = { path = "../../lib/common" }
+dotenvy.workspace = true
+log.workspace = true
 share = { path = "../../lib/share" }
+serde_json.workspace = true
+sqlx.workspace = true
 tokio = { version = "1", features = ["full"] }
