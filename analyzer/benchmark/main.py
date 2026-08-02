@@ -12,3 +12,15 @@ def _score_signal(
     if action == "buy":
         return pct > 0, pct
     return pct < 0, pct
+
+
+def _make_divergence_label(row_data: dict) -> str:
+    if row_data.get("Reg_Bullish_Div"):
+        return "regular_bullish"
+    if row_data.get("Reg_Bearish_Div"):
+        return "regular_bearish"
+    if row_data.get("Hid_Bullish_Div"):
+        return "hidden_bullish"
+    if row_data.get("Hid_Bearish_Div"):
+        return "hidden_bearish"
+    return "unknown"
