@@ -78,5 +78,5 @@ def test_generate_signals_returns_list_of_signals():
     for s in signals:
         assert hasattr(s, "ticker")
         assert hasattr(s, "action")
-        assert s.action in ("buy", "sell", "hold")
+        assert s.action in ("buy", "sell")
         assert 0.0 <= s.confidence <= 1.0

@@ -35,6 +35,8 @@ def generate_signals(
         row = result.iloc[idx]
         if row["Reg_Bullish_Div"] == 1:
             confidence = 0.8 if latest_rsi < 30 else 0.6
+            if price_diff < -price_diff_threshold:
+                confidence = min(confidence + 0.1, 1.0)
             signals.append(
                 Signal(
                     ticker=ticker,
@@ -45,17 +47,22 @@ def generate_signals(
                 )
             )
         elif row["Hid_Bullish_Div"] == 1:
+            confidence = 0.5
+            if price_diff < -price_diff_threshold:
+                confidence = min(confidence + 0.1, 1.0)
             signals.append(
                 Signal(
                     ticker=ticker,
                     action="buy",
-                    confidence=0.5,
+                    confidence=confidence,
                     entry_price=latest_close,
                     reason="hidden_bullish_divergence",
                 )
             )
         elif row["Reg_Bearish_Div"] == 1:
             confidence = 0.8 if latest_rsi > 70 else 0.6
+            if price_diff > price_diff_threshold:
+                confidence = min(confidence + 0.1, 1.0)
             signals.append(
                 Signal(
                     ticker=ticker,
@@ -66,11 +73,14 @@ def generate_signals(
                 )
             )
         elif row["Hid_Bearish_Div"] == 1:
+            confidence = 0.5
+            if price_diff > price_diff_threshold:
+                confidence = min(confidence + 0.1, 1.0)
             signals.append(
                 Signal(
                     ticker=ticker,
                     action="sell",
-                    confidence=0.5,
+                    confidence=confidence,
                     entry_price=latest_close,
                     reason="hidden_bearish_divergence",
                 )

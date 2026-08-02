@@ -43,7 +43,6 @@ def fetch_klines(
     symbol: str,
     timeframe: str = "1day",
     base_url: str = BASE_URL,
-    limit: int = 500,
 ) -> pd.DataFrame:
     """Fetch OHLCV klines from KuCoin REST API.
 
@@ -53,7 +52,6 @@ def fetch_klines(
                    "2hour", "4hour", "6hour", "8hour", "12hour",
                    "1day", "1week"
         base_url: KuCoin API base URL
-        limit: max candles per request (default 500)
 
     Returns:
         DataFrame with columns: Timestamp, Open, Close, High, Low, Volume
@@ -63,9 +61,6 @@ def fetch_klines(
     """
     url = f"{base_url}/api/v1/market/candles"
     params = {"type": timeframe, "symbol": symbol}
-    if limit:
-        # KuCoin returns most recent `limit` candles by default
-        pass
 
     resp = requests.get(url, params=params, timeout=30)
 
