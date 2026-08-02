@@ -26,15 +26,6 @@ def publish_signals(
 
     try:
         redis_client.publish(channel, payload)
-        logger.info(
-            "Published %d signal(s) to %s: %s",
-            len(signals),
-            channel,
-            payload,
-        )
+        logger.debug("→ %s  %d signal(s)", channel, len(signals))
     except Exception:
-        logger.exception(
-            "Failed to publish %d signal(s) to %s",
-            len(signals),
-            channel,
-        )
+        logger.exception("publish to %s failed", channel)
