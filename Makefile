@@ -97,8 +97,10 @@ test-api:
 
 trade:
 	@docker compose up -d redis && \
-		(REDIS_URL=redis://127.0.0.1:6379 cargo run -p trade-engine & \
-		REDIS_HOST=127.0.0.1 python3 -m analyzer.main); \
+		(REDIS_HOST=127.0.0.1 REDIS_URL=redis://127.0.0.1:6379 python3 -m analyzer.main & \
+		sleep 2 && \
+		REDIS_URL=redis://127.0.0.1:6379 cargo run -p trade-engine && \
+		wait); \
 		st=$$?; docker compose stop redis; exit $$st
 
 proto:
