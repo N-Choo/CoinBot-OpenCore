@@ -10,6 +10,7 @@ def test_config_reads_env_with_defaults():
         assert c.redis_port == 6379
         assert c.redis_db == 0
         assert c.kuCoin_base_url == "https://api.kucoin.com"
+        assert c.kucoin_timeframe == "1day"
         assert c.rsi_period == 14
         assert c.rsi_divergence_order == 5
         assert c.price_diff_threshold == 0.05
@@ -23,6 +24,7 @@ def test_config_reads_custom_env():
         "REDIS_PORT": "6380",
         "REDIS_DB": "1",
         "KUCOIN_BASE_URL": "https://api-futures.kucoin.com",
+        "KUCOIN_TIMEFRAME": "4hour",
         "RSI_PERIOD": "10",
         "RSI_DIVERGENCE_ORDER": "7",
         "PRICE_DIFF_THRESHOLD": "0.08",
@@ -35,6 +37,7 @@ def test_config_reads_custom_env():
         assert c.redis_port == 6380
         assert c.redis_db == 1
         assert c.kuCoin_base_url == "https://api-futures.kucoin.com"
+        assert c.kucoin_timeframe == "4hour"
         assert c.rsi_period == 10
         assert c.rsi_divergence_order == 7
         assert c.price_diff_threshold == 0.08

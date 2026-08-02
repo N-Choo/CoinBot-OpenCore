@@ -9,6 +9,9 @@ class Config:
         self.kuCoin_base_url = os.getenv(
             "KUCOIN_BASE_URL", "https://api.kucoin.com"
         )
+        self.kucoin_timeframe = os.getenv(
+            "KUCOIN_TIMEFRAME", "1day"
+        )
         self.rsi_period = int(os.getenv("RSI_PERIOD", "14"))
         self.rsi_divergence_order = int(
             os.getenv("RSI_DIVERGENCE_ORDER", "5")

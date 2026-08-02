@@ -5,9 +5,8 @@ import time
 import redis
 
 from analyzer.config import Config
-from analyzer.fetchers.kucoin import fetch_klines, KuCoinFetchError
+from analyzer.fetchers.kucoin import KuCoinFetchError, fetch_klines
 from analyzer.indicators.rsi import calculate_rsi
-from analyzer.models.types import Signal
 from analyzer.publisher.redis_pub import publish_signals
 from analyzer.signals.generator import generate_signals
 
@@ -24,14 +23,12 @@ def configure_logging() -> None:
     )
 
 
-def analyze_ticker(
-    ticker: str, cfg: Config, redis_client: redis.Redis
-) -> None:
+def analyze_ticker(ticker: str, cfg: Config, redis_client: redis.Redis) -> None:
     t0 = time.monotonic()
 
     try:
         symbol = ticker.replace("/", "-")
-        df = fetch_klines(symbol, base_url=cfg.kuCoin_base_url)
+        df = fetch_klines(symbol, timeframe=cfg.kucoin_timeframe, base_url=cfg.kuCoin_base_url)
     except KuCoinFetchError as e:
         logger.error("  ✗ %-12s  fetch failed — %s", ticker, e)
         return
@@ -42,7 +39,9 @@ def analyze_ticker(
     if len(df) < cfg.rsi_period + 1:
         logger.warning(
             "  ✗ %-12s  only %d candles (need >%d)",
-            ticker, len(df), cfg.rsi_period,
+            ticker,
+            len(df),
+            cfg.rsi_period,
         )
         return
 
@@ -114,11 +113,19 @@ def main() -> None:
     logger.info("")
     logger.info(BAR)
     logger.info("  analyzer started")
-    logger.info("  redis    %s:%d  (channel: %s)",
-                 cfg.redis_host, cfg.redis_port, cfg.ticker_channel)
-    logger.info("  kuCoin   %s", cfg.kuCoin_base_url)
-    logger.info("  rsi      period=%d  order=%d",
-                 cfg.rsi_period, cfg.rsi_divergence_order)
+    logger.info(
+        "  redis    %s:%d  (channel: %s)",
+        cfg.redis_host,
+        cfg.redis_port,
+        cfg.ticker_channel,
+    )
+    logger.info("  kuCoin   %s  (timeframe: %s)",
+                 cfg.kuCoin_base_url, cfg.kucoin_timeframe)
+    logger.info(
+        "  rsi      period=%d  order=%d",
+        cfg.rsi_period,
+        cfg.rsi_divergence_order,
+    )
     logger.info(BAR)
     logger.info("")
 
@@ -133,8 +140,7 @@ def main() -> None:
             continue
 
         batch_id = time.strftime("%H:%M:%S")
-        logger.info("%s  batch %s  (%d tickers)",
-                     BAR, batch_id, len(tickers))
+        logger.info("%s  batch %s  (%d tickers)", BAR, batch_id, len(tickers))
 
         for ticker in tickers:
             time.sleep(0.1)
