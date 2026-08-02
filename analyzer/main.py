@@ -6,6 +6,7 @@ import redis
 
 from analyzer.config import Config
 from analyzer.fetchers.kucoin import fetch_klines, KuCoinFetchError
+from analyzer.indicators.rsi import calculate_rsi
 from analyzer.models.types import Signal
 from analyzer.publisher.redis_pub import publish_signals
 from analyzer.signals.generator import generate_signals
@@ -56,6 +57,9 @@ def analyze_ticker(
     t1 = time.monotonic()
     elapsed = (t1 - t0) * 1000
 
+    latest_close = df["Close"].iloc[-1]
+    latest_rsi = calculate_rsi(df["Close"], period=cfg.rsi_period).iloc[-1]
+
     buy_n = sum(1 for s in signals if s.action == "buy")
     sell_n = sum(1 for s in signals if s.action == "sell")
 
@@ -64,13 +68,11 @@ def analyze_ticker(
             f"{s.action}({s.confidence:.1f})" for s in signals
         )
         logger.info(
-            "  ✓ %-12s  price=%-10s  rsi=%-5.1f  "
+            "  ✓ %-12s  price=%-12s  rsi=%-5.1f  "
             "candles=%-4d  buy=%-2d  sell=%-2d  [%s]  %dms",
             ticker,
-            f"${df['Close'].iloc[-1]:,.2f}",
-            df.get("RSI", [float("nan")]).iloc[-1]
-            if "RSI" in df
-            else signals[0].entry_price,
+            f"${latest_close:,.2f}",
+            latest_rsi,
             len(df),
             buy_n,
             sell_n,
@@ -79,9 +81,10 @@ def analyze_ticker(
         )
     else:
         logger.info(
-            "  ✓ %-12s  price=%-10s  candles=%-4d  no signals  %dms",
+            "  ✓ %-12s  price=%-12s  rsi=%-5.1f  candles=%-4d  no signals  %dms",
             ticker,
-            f"${df['Close'].iloc[-1]:,.2f}",
+            f"${latest_close:,.2f}",
+            latest_rsi,
             len(df),
             round(elapsed),
         )

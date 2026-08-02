@@ -97,6 +97,7 @@ test-api:
 
 trade:
 	@docker compose up -d redis && \
+		pkill -f "analyzer.main" 2>/dev/null || true; \
 		(REDIS_HOST=127.0.0.1 REDIS_URL=redis://127.0.0.1:6379 python3 -m analyzer.main & \
 		sleep 2 && \
 		REDIS_URL=redis://127.0.0.1:6379 cargo run -p trade-engine && \
