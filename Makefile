@@ -48,7 +48,13 @@ clippy:
 	cargo clippy $(addprefix -p ,$(PACKAGES)) -- -D warnings
 
 test:
-	@docker compose up -d redis && cargo test $(addprefix -p ,$(PACKAGES)); st=$$?; docker compose stop redis; exit $$st
+	@docker compose up -d redis && \
+		cargo test $(addprefix -p ,$(PACKAGES)); \
+		rst=$$?; \
+		cd analyzer && python3 -m pytest . -v; \
+		pst=$$?; \
+		docker compose stop redis; \
+		exit $$(( rst + pst ))
 
 analyzer-test:
 	@cd analyzer && python3 -m pytest . -v
