@@ -99,9 +99,10 @@ trade:
 	@docker compose up -d redis && \
 		(REDIS_HOST=127.0.0.1 REDIS_URL=redis://127.0.0.1:6379 python3 -m analyzer.main & \
 		PID=$$!; sleep 2 && \
-		REDIS_URL=redis://127.0.0.1:6379 cargo run -p trade-engine && \
-		sleep 3 && kill $$PID 2>/dev/null; wait $$PID 2>/dev/null); \
-		st=$$?; docker compose stop redis; exit $$st
+		REDIS_URL=redis://127.0.0.1:6379 cargo run -p trade-engine; st=$$?; \
+		sleep 3; kill $$PID 2>/dev/null; wait $$PID 2>/dev/null; \
+		exit $$st); \
+		docker compose stop redis
 
 proto:
 	cargo build -p common --timings
