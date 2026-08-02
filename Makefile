@@ -25,6 +25,8 @@ help:
 	@echo "  clippy       Lint (deny warnings)"
 	@echo "  test         Run Rust unit tests"
 	@echo "  analyzer-test Run Python analyzer unit tests"
+	@echo "  benchmark-test Run benchmark unit tests"
+	@echo "  benchmark      Run RSI signal backtesting (requires KuCoin access)"
 	@echo "  proto        Compile wallet.proto (verify proto only)"
 	@echo ""
 	@echo "Frontend"
@@ -58,6 +60,12 @@ test:
 
 analyzer-test:
 	@cd analyzer && python3 -m pytest . -v
+
+benchmark-test:
+	@cd analyzer && python3 -m pytest benchmark/tests/ -v
+
+benchmark:
+	@python3 -m analyzer.benchmark.main
 
 frontend-install:
 	cd react && npm ci
