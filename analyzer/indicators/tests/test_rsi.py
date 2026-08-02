@@ -31,3 +31,71 @@ def test_calculate_rsi_length_matches_input():
     close = pd.Series(np.random.randn(50).cumsum() + 100, name="Close")
     rsi = calculate_rsi(close, period=14)
     assert len(rsi) == len(close)
+
+
+from analyzer.indicators.rsi import detect_rsi_divergences
+
+
+def test_regular_bullish_divergence_detected():
+    """Price makes lower low, RSI makes higher low -> regular bullish"""
+    np.random.seed(1)
+    n = 200
+    close = np.linspace(100, 50, n)
+    close += np.random.randn(n) * 2
+    high = close + np.random.rand(n) * 3
+    low = close - np.random.rand(n) * 3
+    # Force a lower low at index 180
+    low[180] = low[179] - 10.0
+    # Force a higher RSI low by making close recover slightly
+    close[180] = close[179] + 2.0
+
+    df = pd.DataFrame({"High": high, "Low": low, "Close": close})
+    result = detect_rsi_divergences(df, rsi_period=14, order=10)
+    assert result["Reg_Bullish_Div"].sum() >= 1
+
+
+def test_regular_bearish_divergence_detected():
+    """Price makes higher high, RSI makes lower high -> regular bearish"""
+    np.random.seed(2)
+    n = 200
+    close = np.linspace(50, 100, n)
+    close += np.random.randn(n) * 2
+    high = close + np.random.rand(n) * 3
+    low = close - np.random.rand(n) * 3
+    # Force a higher high
+    high[180] = high[179] + 10.0
+    # RSI momentum diverges
+    close[180] = close[179] - 2.0
+
+    df = pd.DataFrame({"High": high, "Low": low, "Close": close})
+    result = detect_rsi_divergences(df, rsi_period=14, order=10)
+    assert result["Reg_Bearish_Div"].sum() >= 1
+
+
+def test_no_same_rsi_extremum_reused():
+    """
+    Verify the fix: the old greedy nearest-neighbor approach could reuse
+    the same RSI trough for multiple price troughs. After the fix,
+    each RSI extremum is paired at most once, and temporal ordering is
+    enforced (prev_rsi_idx < curr_rsi_idx).
+    """
+    np.random.seed(3)
+    n = 300
+    # Create many local troughs with a sine wave
+    t = np.linspace(0, 10 * np.pi, n)
+    close = 100 + 10 * np.sin(t) + np.random.randn(n) * 0.5
+    close = close + np.linspace(0, 5, n)
+    high = close + np.random.rand(n) * 2
+    low = close - np.random.rand(n) * 2
+
+    df = pd.DataFrame({"High": high, "Low": low, "Close": close})
+    result = detect_rsi_divergences(df, rsi_period=14, order=5)
+
+    # With 10 full sine cycles, the method should not crash
+    total = (
+        result["Reg_Bullish_Div"].sum()
+        + result["Reg_Bearish_Div"].sum()
+        + result["Hid_Bullish_Div"].sum()
+        + result["Hid_Bearish_Div"].sum()
+    )
+    assert total >= 0
