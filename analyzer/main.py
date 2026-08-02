@@ -25,7 +25,8 @@ def analyze_ticker(
 ) -> None:
     """Fetch OHLCV, compute signals, and publish results for a ticker."""
     try:
-        df = fetch_klines(ticker, base_url=cfg.kuCoin_base_url)
+        symbol = ticker.replace("/", "-")
+        df = fetch_klines(symbol, base_url=cfg.kuCoin_base_url)
     except KuCoinFetchError as e:
         logger.warning("Skipping %s — fetch failed: %s", ticker, e)
         return
