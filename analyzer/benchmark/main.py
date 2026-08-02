@@ -128,3 +128,77 @@ def run_benchmark(
         "sell_hits": sell_hits,
         "sell_total": sell_total,
     }
+
+
+def print_ledger(
+    signals: list[dict[str, Any]],
+    summary: dict[str, Any],
+    forward_days: int,
+) -> None:
+    ticker = summary["ticker"]
+    W = "\u2550" * 67
+    print()
+    print(W)
+    print(f"{ticker}  signals (forward {forward_days}d)")
+    print("\u2500" * 67)
+
+    if not signals:
+        print("(no signals)")
+        print(W)
+        return
+
+    print(
+        f"{'date':<11} {'signal':<8} {'divergence':<20} "
+        f"{'entry':>12} {str(forward_days) + 'd later':>12} "
+        f"{'pct':>8}  hit"
+    )
+    for s in signals:
+        mark = (
+            "\u2713" if s["hit"] is True
+            else ("\u2717" if s["hit"] is False else "-")
+        )
+        pct_str = (
+            f"{s['pct']:+.1f}%" if s["pct"] is not None else "N/A"
+        )
+        entry_str = f"${s['entry_price']:,.0f}"
+        fwd_str = (
+            f"${s['forward_price']:,.0f}"
+            if s["forward_price"] is not None
+            else "N/A"
+        )
+        arrow = "\u25b2" if s["action"] == "buy" else "\u25bc"
+        sig_label = f"{arrow} {s['action'].upper()}"
+        print(
+            f"{s['date']:<11} {sig_label:<8} "
+            f"{s['divergence']:<20} {entry_str:>12} "
+            f"{fwd_str:>12} {pct_str:>8}  {mark}"
+        )
+
+    print("\u2500" * 67)
+
+    buy_pcts = [
+        s["pct"] for s in signals
+        if s["action"] == "buy" and s["pct"] is not None
+    ]
+    sell_pcts = [
+        s["pct"] for s in signals
+        if s["action"] == "sell" and s["pct"] is not None
+    ]
+    buy_avg = sum(buy_pcts) / len(buy_pcts) if buy_pcts else 0.0
+    sell_avg = sum(sell_pcts) / len(sell_pcts) if sell_pcts else 0.0
+    buy_rate = (
+        f"buy  {summary['buy_hits']}/{summary['buy_total']}"
+        f" ({summary['buy_hits'] / summary['buy_total'] * 100:.0f}%)"
+        f" avg {buy_avg:+.1f}%"
+        if summary["buy_total"] > 0
+        else "buy  -"
+    )
+    sell_rate = (
+        f"sell {summary['sell_hits']}/{summary['sell_total']}"
+        f" ({summary['sell_hits'] / summary['sell_total'] * 100:.0f}%)"
+        f" avg {sell_avg:+.1f}%"
+        if summary["sell_total"] > 0
+        else "sell -"
+    )
+    print(f"{buy_rate}  |  {sell_rate}")
+    print(W)

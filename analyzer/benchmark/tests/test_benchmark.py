@@ -143,3 +143,45 @@ def test_run_benchmark_on_synthetic_data():
 
     assert summary["buy_total"] >= 1
     assert summary["buy_hits"] >= 1
+
+
+from analyzer.benchmark.main import print_ledger
+
+
+def test_print_ledger_no_signals(capsys):
+    signals: list[dict[str, Any]] = []
+    summary = {
+        "ticker": "BTC-USDT", "buy_hits": 0, "buy_total": 0,
+        "sell_hits": 0, "sell_total": 0,
+    }
+    print_ledger(signals, summary, forward_days=7)
+    captured = capsys.readouterr().out
+    assert "(no signals)" in captured
+
+
+def test_print_ledger_with_signals(capsys):
+    signals = [
+        {
+            "ticker": "BTC-USDT", "date": "2026-05-12",
+            "action": "buy", "divergence": "regular_bullish",
+            "entry_price": 91200.0, "forward_price": 94500.0,
+            "pct": 3.62, "hit": True,
+        },
+        {
+            "ticker": "BTC-USDT", "date": "2026-05-25",
+            "action": "buy", "divergence": "hidden_bullish",
+            "entry_price": 93400.0, "forward_price": 92100.0,
+            "pct": -1.39, "hit": False,
+        },
+    ]
+    summary = {
+        "ticker": "BTC-USDT", "buy_hits": 1, "buy_total": 2,
+        "sell_hits": 0, "sell_total": 0,
+    }
+    print_ledger(signals, summary, forward_days=7)
+    captured = capsys.readouterr().out
+    assert "BTC-USDT" in captured
+    assert "regular_bullish" in captured
+    assert "\u2713" in captured
+    assert "\u2717" in captured
+    assert "50%" in captured
