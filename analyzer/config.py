@@ -19,6 +19,17 @@ class Config:
         self.price_diff_threshold = float(
             os.getenv("PRICE_DIFF_THRESHOLD", "0.05")
         )
+        self.sma_enabled = os.getenv("SMA_ENABLED", "false").lower() in (
+            "1",
+            "true",
+            "yes",
+            "on",
+        )
+        self.sma_period = int(os.getenv("SMA_PERIOD", "20"))
+        self.benchmark_days = int(os.getenv("BENCHMARK_DAYS", "90"))
+        self.benchmark_forward_days = int(
+            os.getenv("BENCHMARK_FORWARD_DAYS", "7")
+        )
         self.result_channel = os.getenv(
             "RESULT_CHANNEL", "signals:result"
         )

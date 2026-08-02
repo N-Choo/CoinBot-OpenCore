@@ -16,6 +16,10 @@ def test_config_reads_env_with_defaults():
         assert c.price_diff_threshold == 0.05
         assert c.result_channel == "signals:result"
         assert c.ticker_channel == "tickers:analyze"
+        assert c.sma_enabled is False
+        assert c.sma_period == 20
+        assert c.benchmark_days == 90
+        assert c.benchmark_forward_days == 7
 
 
 def test_config_reads_custom_env():
@@ -30,6 +34,10 @@ def test_config_reads_custom_env():
         "PRICE_DIFF_THRESHOLD": "0.08",
         "RESULT_CHANNEL": "signals:v1",
         "TICKER_CHANNEL": "tickers:v2",
+        "SMA_ENABLED": "true",
+        "SMA_PERIOD": "50",
+        "BENCHMARK_DAYS": "180",
+        "BENCHMARK_FORWARD_DAYS": "14",
     }
     with mock.patch.dict(os.environ, env, clear=True):
         c = Config()
@@ -43,3 +51,7 @@ def test_config_reads_custom_env():
         assert c.price_diff_threshold == 0.08
         assert c.result_channel == "signals:v1"
         assert c.ticker_channel == "tickers:v2"
+        assert c.sma_enabled is True
+        assert c.sma_period == 50
+        assert c.benchmark_days == 180
+        assert c.benchmark_forward_days == 14
