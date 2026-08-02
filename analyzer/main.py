@@ -12,12 +12,14 @@ def _load_dotenv(path: str = ".env") -> None:
         with open(path) as f:
             for line in f:
                 line = line.strip()
-                if not line or line.startswith("#") or "=" not in line:
+                if not line or line.startswith("#"):
+                    continue
+                if "=" not in line:
                     continue
                 key, _, val = line.partition("=")
                 key = key.strip()
-                val = val.strip().strip("\"'")
-                if key not in os.environ:
+                val = val.split("#")[0].strip().strip("\"'")
+                if key and key not in os.environ:
                     os.environ[key] = val
     except FileNotFoundError:
         pass
@@ -74,6 +76,11 @@ def analyze_ticker(ticker: str, cfg: Config, redis_client: redis.Redis) -> None:
         price_diff_threshold=cfg.price_diff_threshold,
         sma_enabled=cfg.sma_enabled,
         sma_period=cfg.sma_period,
+        atr_period=cfg.atr_period,
+        atr_sl_multiplier=cfg.atr_sl_multiplier,
+        atr_tp_multiplier=cfg.atr_tp_multiplier,
+        atr_pct_high=cfg.atr_pct_high,
+        atr_high_adjust=cfg.atr_high_adjust,
     )
 
     t1 = time.monotonic()
@@ -100,11 +107,13 @@ def analyze_ticker(ticker: str, cfg: Config, redis_client: redis.Redis) -> None:
         for s in signals:
             arrow = "▲" if s.action == "buy" else "▼"
             logger.info(
-                "    %s  %-4s  conf=%.1f  @$%.2f  %s",
+                "    %s  %-4s  conf=%.1f  @$%.2f  SL=$%.2f  TP=$%.2f  %s",
                 arrow,
                 s.action.upper(),
                 s.confidence,
                 s.entry_price,
+                s.sl_price,
+                s.tp_price,
                 s.reason,
             )
     else:
@@ -153,6 +162,12 @@ def main() -> None:
         "  sma      enabled=%s  period=%d",
         "yes" if cfg.sma_enabled else "no",
         cfg.sma_period,
+    )
+    logger.info(
+        "  atr      period=%d  sl=%.1fx  tp=%.1fx",
+        cfg.atr_period,
+        cfg.atr_sl_multiplier,
+        cfg.atr_tp_multiplier,
     )
     logger.info(BAR)
     logger.info("")

@@ -2,6 +2,7 @@ import pandas as pd
 
 from analyzer.indicators.rsi import detect_rsi_divergences
 from analyzer.indicators.sma import calculate_sma
+from analyzer.indicators.atr import calculate_atr
 from analyzer.models.types import Signal
 
 
@@ -22,6 +23,11 @@ def generate_signals(
     price_diff_threshold: float = 0.05,
     sma_enabled: bool = False,
     sma_period: int = 20,
+    atr_period: int = 14,
+    atr_sl_multiplier: float = 2.0,
+    atr_tp_multiplier: float = 3.0,
+    atr_pct_high: float = 5.0,
+    atr_high_adjust: float = 1.5,
 ) -> list[Signal]:
     """Generate ONE trading signal from the most recent RSI divergence.
 
@@ -100,6 +106,25 @@ def generate_signals(
     candidates.sort(key=lambda x: x[0], reverse=True)
     best = candidates[0]
 
+    atr_val = 0.0
+    if len(df) >= atr_period:
+        atr_val = float(calculate_atr(df, period=atr_period).iloc[-1])
+
+    sl_price = tp_price = 0.0
+    if atr_val > 0 and latest_close > 0:
+        atr_pct = (atr_val / latest_close) * 100
+        sl_mult = atr_sl_multiplier
+        tp_mult = atr_tp_multiplier
+        if atr_pct > atr_pct_high:
+            sl_mult *= atr_high_adjust
+            tp_mult *= atr_high_adjust
+        if best[1] == "buy":
+            sl_price = latest_close - atr_val * sl_mult
+            tp_price = latest_close + atr_val * tp_mult
+        else:
+            sl_price = latest_close + atr_val * sl_mult
+            tp_price = latest_close - atr_val * tp_mult
+
     return [
         Signal(
             ticker=ticker,
@@ -107,5 +132,7 @@ def generate_signals(
             confidence=best[3],
             entry_price=latest_close,
             reason=best[2],
+            sl_price=sl_price,
+            tp_price=tp_price,
         )
     ]

@@ -14,6 +14,8 @@ def test_signal_creation_defaults():
     assert s.confidence == 0.8
     assert s.entry_price == 45000.0
     assert s.reason == ""
+    assert s.sl_price == 0.0
+    assert s.tp_price == 0.0
 
 
 def test_signal_with_reason():
@@ -42,6 +44,8 @@ def test_signal_to_dict():
         "confidence": 0.8,
         "entry_price": 45000.0,
         "reason": "bullish_div",
+        "sl_price": 0.0,
+        "tp_price": 0.0,
     }
 
 

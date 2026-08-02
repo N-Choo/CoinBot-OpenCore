@@ -18,8 +18,15 @@ def test_config_reads_env_with_defaults():
         assert c.ticker_channel == "tickers:analyze"
         assert c.sma_enabled is False
         assert c.sma_period == 20
+        assert c.atr_period == 14
+        assert c.atr_sl_multiplier == 2.0
+        assert c.atr_tp_multiplier == 3.0
+        assert c.atr_pct_high == 5.0
+        assert c.atr_high_adjust == 1.5
         assert c.benchmark_days == 90
         assert c.benchmark_forward_days == 7
+        assert c.benchmark_tickers == ["BTC-USDT", "ETH-USDT", "SOL-USDT"]
+        assert c.allow_pyramiding is False
 
 
 def test_config_reads_custom_env():
@@ -36,8 +43,14 @@ def test_config_reads_custom_env():
         "TICKER_CHANNEL": "tickers:v2",
         "SMA_ENABLED": "true",
         "SMA_PERIOD": "50",
+        "ATR_PERIOD": "10",
+        "ATR_SL_MULTIPLIER": "2.5",
+        "ATR_TP_MULTIPLIER": "3.5",
+        "ATR_PCT_HIGH": "6.0",
+        "ATR_HIGH_ADJUST": "2.0",
         "BENCHMARK_DAYS": "180",
         "BENCHMARK_FORWARD_DAYS": "14",
+        "BENCHMARK_TICKERS": "XRP-USDT,DOGE-USDT",
     }
     with mock.patch.dict(os.environ, env, clear=True):
         c = Config()
@@ -53,5 +66,11 @@ def test_config_reads_custom_env():
         assert c.ticker_channel == "tickers:v2"
         assert c.sma_enabled is True
         assert c.sma_period == 50
+        assert c.atr_period == 10
+        assert c.atr_sl_multiplier == 2.5
+        assert c.atr_tp_multiplier == 3.5
+        assert c.atr_pct_high == 6.0
+        assert c.atr_high_adjust == 2.0
         assert c.benchmark_days == 180
         assert c.benchmark_forward_days == 14
+        assert c.benchmark_tickers == ["XRP-USDT", "DOGE-USDT"]

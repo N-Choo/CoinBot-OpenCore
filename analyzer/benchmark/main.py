@@ -11,11 +11,10 @@ from pandas import Timestamp
 
 from analyzer.config import Config
 from analyzer.fetchers.kucoin import KuCoinFetchError, fetch_klines
-from analyzer.indicators.rsi import detect_rsi_divergences
 from analyzer.indicators.sma import calculate_sma
+from analyzer.signals.generator import generate_signals
 
 
-DEFAULT_TICKERS = ["BTC-USDT", "ETH-USDT", "SOL-USDT"]
 
 
 def _load_dotenv(path: str = ".env") -> None:
@@ -23,12 +22,14 @@ def _load_dotenv(path: str = ".env") -> None:
         with open(path) as f:
             for line in f:
                 line = line.strip()
-                if not line or line.startswith("#") or "=" not in line:
+                if not line or line.startswith("#"):
+                    continue
+                if "=" not in line:
                     continue
                 key, _, val = line.partition("=")
                 key = key.strip()
-                val = val.strip().strip("\"'")
-                if key not in os.environ:
+                val = val.split("#")[0].strip().strip("\"'")
+                if key and key not in os.environ:
                     os.environ[key] = val
     except FileNotFoundError:
         pass
@@ -39,10 +40,11 @@ def _score_signal(
 ) -> tuple[bool | None, float | None]:
     if forward is None:
         return None, None
-    pct = ((forward - entry) / entry) * 100
-    if action == "buy":
+    if action == "sell":
+        pct = float(((entry - forward) / entry) * 100)
         return pct > 0, pct
-    return pct < 0, pct
+    pct = float(((forward - entry) / entry) * 100)
+    return pct > 0, pct
 
 
 def _make_divergence_label(row_data: dict) -> str:
@@ -81,61 +83,136 @@ def run_benchmark(
     forward_days: int = 7,
     sma_enabled: bool = False,
     sma_period: int = 20,
+    atr_period: int = 14,
+    atr_sl_multiplier: float = 2.0,
+    atr_tp_multiplier: float = 3.0,
+    atr_pct_high: float = 5.0,
+    atr_high_adjust: float = 1.5,
+    allow_pyramiding: bool = False,
 ) -> tuple[list[dict[str, Any]], dict[str, Any]]:
-    eval_df = (
-        df.iloc[: -forward_days] if len(df) > forward_days else df
-    )
-    result = detect_rsi_divergences(
-        eval_df, rsi_period=rsi_period, order=rsi_order
-    )
+    from analyzer.indicators.rsi import detect_rsi_divergences
 
     signals: list[dict[str, Any]] = []
     buy_total = buy_hits = sell_total = sell_hits = 0
+    last_div_idx: int | None = None
+    last_exit_idx: int = -1
 
-    for idx in range(len(result)):
-        row_data = dict(result.iloc[idx])
-        div_type = _make_divergence_label(row_data)
-        if div_type == "unknown":
-            continue
+    div_columns = ["Reg_Bullish_Div", "Reg_Bearish_Div",
+                   "Hid_Bullish_Div", "Hid_Bearish_Div"]
 
-        action = "buy" if "bullish" in div_type else "sell"
-
-        if sma_enabled:
-            allowed = _apply_sma_filter(
-                df["Close"], idx, action, sma_period
-            )
-            if not allowed:
-                continue
-
-        entry_price = float(df["Close"].iloc[idx])
-        fwd_idx = idx + forward_days
-        forward_price = (
-            float(df["Close"].iloc[fwd_idx])
-            if fwd_idx < len(df)
-            else None
+    for i in range(rsi_period, len(df) - forward_days):
+        df_slice = df.iloc[: i + 1]
+        div_df = detect_rsi_divergences(
+            df_slice, rsi_period=rsi_period, order=rsi_order
         )
 
-        hit, pct = _score_signal(action, entry_price, forward_price)
+        # find the most recent divergence index
+        found_idx = -1
+        for j in range(len(div_df) - 1, -1, -1):
+            if any(div_df.iloc[j][c] == 1 for c in div_columns):
+                found_idx = j
+                break
 
-        ts = df.index[idx]
-        if isinstance(ts, Timestamp):
+        if found_idx == -1:
+            last_div_idx = None
+            continue
+
+        if found_idx == last_div_idx:
+            continue
+        last_div_idx = found_idx
+
+        # no pyramiding: skip if previous position hasn't closed yet
+        if not allow_pyramiding and i < last_exit_idx:
+            continue
+
+        # only call generate_signals when we have a new divergence
+        result = generate_signals(
+            df_slice,
+            ticker=ticker,
+            rsi_period=rsi_period,
+            rsi_order=rsi_order,
+            sma_enabled=sma_enabled,
+            sma_period=sma_period,
+            atr_period=atr_period,
+            atr_sl_multiplier=atr_sl_multiplier,
+            atr_tp_multiplier=atr_tp_multiplier,
+            atr_pct_high=atr_pct_high,
+            atr_high_adjust=atr_high_adjust,
+        )
+        if not result:
+            continue
+        sig = result[0]
+
+        if "Timestamp" in df.columns:
+            ts = df["Timestamp"].iloc[i]
+        else:
+            ts = df.index[i]
+        from datetime import datetime as dt
+        if isinstance(ts, (dt, Timestamp)):
             date_str = ts.strftime("%Y-%m-%d")
         else:
             date_str = str(ts)
 
+        entry_price = sig.entry_price
+        sl_price = sig.sl_price
+        tp_price = sig.tp_price
+
+        exit_price: float | None = None
+        exit_reason = "expiry"
+        exit_idx = len(df) - 1
+
+        window = df.iloc[i + 1:]
+        if len(window) > 0:
+            if sig.action == "buy":
+                for j in range(len(window)):
+                    row = window.iloc[j]
+                    if tp_price > 0 and float(row["High"]) >= tp_price:
+                        exit_price = tp_price
+                        exit_reason = "TP"
+                        exit_idx = i + 1 + j
+                        break
+                    if sl_price > 0 and float(row["Low"]) <= sl_price:
+                        exit_price = sl_price
+                        exit_reason = "SL"
+                        exit_idx = i + 1 + j
+                        break
+            else:
+                for j in range(len(window)):
+                    row = window.iloc[j]
+                    if tp_price > 0 and float(row["Low"]) <= tp_price:
+                        exit_price = tp_price
+                        exit_reason = "TP"
+                        exit_idx = i + 1 + j
+                        break
+                    if sl_price > 0 and float(row["High"]) >= sl_price:
+                        exit_price = sl_price
+                        exit_reason = "SL"
+                        exit_idx = i + 1 + j
+                        break
+
+            if exit_price is None:
+                exit_price = float(window["Close"].iloc[-1])
+        else:
+            exit_price = None
+
+        hit, pct = _score_signal(sig.action, entry_price, exit_price)
+
         signals.append({
             "ticker": ticker,
             "date": date_str,
-            "action": action,
-            "divergence": div_type,
+            "action": sig.action,
+            "divergence": sig.reason,
             "entry_price": entry_price,
-            "forward_price": forward_price,
+            "forward_price": exit_price,
             "pct": pct,
             "hit": hit,
+            "sl_price": sl_price,
+            "tp_price": tp_price,
+            "exit": exit_reason,
         })
 
         if hit is not None:
-            if action == "buy":
+            if sig.action == "buy":
                 buy_total += 1
                 if hit:
                     buy_hits += 1
@@ -143,6 +220,8 @@ def run_benchmark(
                 sell_total += 1
                 if hit:
                     sell_hits += 1
+
+        last_exit_idx = exit_idx
 
     return signals, {
         "ticker": ticker,
@@ -152,52 +231,63 @@ def run_benchmark(
         "sell_total": sell_total,
     }
 
-
 def print_ledger(
     signals: list[dict[str, Any]],
     summary: dict[str, Any],
     forward_days: int,
 ) -> None:
     ticker = summary["ticker"]
-    W = "\u2550" * 67
+    W = "\u2550" * 65
+    H = "\u2500" * 65
     print()
-    print(W)
-    print(f"{ticker}  signals (forward {forward_days}d)")
-    print("\u2500" * 67)
+    print(f"  {ticker}")
+    print(H)
 
     if not signals:
-        print("(no signals)")
+        print("  (no signals)")
         print(W)
+        print()
         return
 
     print(
-        f"{'date':<11} {'signal':<8} {'divergence':<20} "
-        f"{'entry':>12} {str(forward_days) + 'd later':>12} "
+        f"  {'date':<10} {'dir':<5} {'entry':>10} "
+        f"{'exit':>10} {'SL':>10} {'TP':>10} "
         f"{'pct':>8}  hit"
     )
+    print(
+        f"  {'-'*10} {'-'*5} {'-'*10} "
+        f"{'-'*10} {'-'*10} {'-'*10} "
+        f"{'-'*8}  {'-'*3}"
+    )
+
     for s in signals:
-        mark = (
-            "\u2713" if s["hit"] is True
-            else ("\u2717" if s["hit"] is False else "-")
+        mark = "\u2713" if s["hit"] is True else ("\u2717" if s["hit"] is False else "-")
+        exit_reason = s.get("exit", "expiry")
+        exit_str = (
+            f"${s['forward_price']:,.0f} {exit_reason}"
+            if s.get("forward_price") is not None and exit_reason != "expiry"
+            else (f"${s['forward_price']:,.0f}" if s.get("forward_price") is not None else "-")
         )
         pct_str = (
             f"{s['pct']:+.1f}%" if s["pct"] is not None else "N/A"
         )
         entry_str = f"${s['entry_price']:,.0f}"
-        fwd_str = (
-            f"${s['forward_price']:,.0f}"
-            if s["forward_price"] is not None
-            else "N/A"
+        sl_str = (
+            f"${s['sl_price']:,.0f}"
+            if s.get("sl_price", 0) else "-"
         )
-        arrow = "\u25b2" if s["action"] == "buy" else "\u25bc"
-        sig_label = f"{arrow} {s['action'].upper()}"
+        tp_str = (
+            f"${s['tp_price']:,.0f}"
+            if s.get("tp_price", 0) else "-"
+        )
+        dir_str = s["action"].upper()[:4]
         print(
-            f"{s['date']:<11} {sig_label:<8} "
-            f"{s['divergence']:<20} {entry_str:>12} "
-            f"{fwd_str:>12} {pct_str:>8}  {mark}"
+            f"  {s['date']:<10} {dir_str:<5} {entry_str:>10} "
+            f"{exit_str:>10} {sl_str:>10} {tp_str:>10} "
+            f"{pct_str:>8}  {mark}"
         )
 
-    print("\u2500" * 67)
+    print(H)
 
     buy_pcts = [
         s["pct"] for s in signals
@@ -209,22 +299,24 @@ def print_ledger(
     ]
     buy_avg = sum(buy_pcts) / len(buy_pcts) if buy_pcts else 0.0
     sell_avg = sum(sell_pcts) / len(sell_pcts) if sell_pcts else 0.0
+
     buy_rate = (
-        f"buy  {summary['buy_hits']}/{summary['buy_total']}"
+        f"BUY  {summary['buy_hits']}/{summary['buy_total']}"
         f" ({summary['buy_hits'] / summary['buy_total'] * 100:.0f}%)"
         f" avg {buy_avg:+.1f}%"
         if summary["buy_total"] > 0
-        else "buy  -"
+        else "BUY  -"
     )
     sell_rate = (
-        f"sell {summary['sell_hits']}/{summary['sell_total']}"
+        f"SELL {summary['sell_hits']}/{summary['sell_total']}"
         f" ({summary['sell_hits'] / summary['sell_total'] * 100:.0f}%)"
         f" avg {sell_avg:+.1f}%"
         if summary["sell_total"] > 0
-        else "sell -"
+        else "SELL -"
     )
-    print(f"{buy_rate}  |  {sell_rate}")
+    print(f"  {buy_rate}  |  {sell_rate}")
     print(W)
+    print()
 
 
 def main() -> None:
@@ -239,18 +331,25 @@ def main() -> None:
     logger = logging.getLogger("benchmark")
 
     logger.info(
-        "benchmark started  days=%d  forward=%dd",
+        "benchmark started  days=%d  forward=%dd  tickers=%s",
         cfg.benchmark_days,
         cfg.benchmark_forward_days,
+        ", ".join(cfg.benchmark_tickers),
     )
     logger.info(
-        "rsi period=%d  order=%d  sma=%s",
+        "rsi period=%d  order=%d  sma=%s  atr=%d sl=%.1fx tp=%.1fx high=%d%% adj=%.1fx  pyramid=%s",
         cfg.rsi_period,
         cfg.rsi_divergence_order,
         "on" if cfg.sma_enabled else "off",
+        cfg.atr_period,
+        cfg.atr_sl_multiplier,
+        cfg.atr_tp_multiplier,
+        int(cfg.atr_pct_high),
+        cfg.atr_high_adjust,
+        "yes" if cfg.allow_pyramiding else "no",
     )
 
-    for ticker in DEFAULT_TICKERS:
+    for ticker in cfg.benchmark_tickers:
         logger.info("fetching %s klines...", ticker)
         try:
             df = fetch_klines(
@@ -268,6 +367,12 @@ def main() -> None:
             )
             continue
 
+        # limit to the configured benchmark window
+        needed = cfg.benchmark_days + cfg.benchmark_forward_days
+        if len(df) > needed:
+            df = df.iloc[-needed:]
+            logger.info("  %s  using last %d candles", ticker, len(df))
+
         signals, summary = run_benchmark(
             df,
             ticker=ticker,
@@ -276,6 +381,12 @@ def main() -> None:
             forward_days=cfg.benchmark_forward_days,
             sma_enabled=cfg.sma_enabled,
             sma_period=cfg.sma_period,
+            atr_period=cfg.atr_period,
+            atr_sl_multiplier=cfg.atr_sl_multiplier,
+            atr_tp_multiplier=cfg.atr_tp_multiplier,
+            atr_pct_high=cfg.atr_pct_high,
+            atr_high_adjust=cfg.atr_high_adjust,
+            allow_pyramiding=cfg.allow_pyramiding,
         )
 
         print_ledger(signals, summary, cfg.benchmark_forward_days)

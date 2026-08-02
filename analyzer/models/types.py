@@ -9,6 +9,8 @@ class Signal:
     confidence: float
     entry_price: float
     reason: str = ""
+    sl_price: float = 0.0
+    tp_price: float = 0.0
 
     def to_dict(self) -> dict:
         return {
@@ -17,6 +19,8 @@ class Signal:
             "confidence": self.confidence,
             "entry_price": self.entry_price,
             "reason": self.reason,
+            "sl_price": self.sl_price,
+            "tp_price": self.tp_price,
         }
 
 
