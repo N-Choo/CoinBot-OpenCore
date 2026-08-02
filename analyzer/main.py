@@ -26,8 +26,11 @@ def analyze_ticker(
     """Fetch OHLCV, compute signals, and publish results for a ticker."""
     try:
         df = fetch_klines(ticker, base_url=cfg.kuCoin_base_url)
-    except KuCoinFetchError:
-        logger.warning("Skipping %s — fetch failed", ticker)
+    except KuCoinFetchError as e:
+        logger.warning("Skipping %s — fetch failed: %s", ticker, e)
+        return
+    except Exception as e:
+        logger.warning("Skipping %s — unexpected error: %s", ticker, e)
         return
 
     if len(df) < cfg.rsi_period + 1:
