@@ -33,6 +33,9 @@ class Config:
         self.atr_high_adjust = float(
             os.getenv("ATR_HIGH_ADJUST", "1.5")
         )
+        self.atr_sl_max_pct = float(
+            os.getenv("ATR_SL_MAX_PCT", "0.0")
+        )
         self.benchmark_days = int(os.getenv("BENCHMARK_DAYS", "90"))
         self.benchmark_forward_days = int(
             os.getenv("BENCHMARK_FORWARD_DAYS", "7")

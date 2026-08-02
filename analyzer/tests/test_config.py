@@ -23,6 +23,7 @@ def test_config_reads_env_with_defaults():
         assert c.atr_tp_multiplier == 3.0
         assert c.atr_pct_high == 5.0
         assert c.atr_high_adjust == 1.5
+        assert c.atr_sl_max_pct == 0.0
         assert c.benchmark_days == 90
         assert c.benchmark_forward_days == 7
         assert c.benchmark_tickers == ["BTC-USDT", "ETH-USDT", "SOL-USDT"]
@@ -48,6 +49,7 @@ def test_config_reads_custom_env():
         "ATR_TP_MULTIPLIER": "3.5",
         "ATR_PCT_HIGH": "6.0",
         "ATR_HIGH_ADJUST": "2.0",
+        "ATR_SL_MAX_PCT": "0.10",
         "BENCHMARK_DAYS": "180",
         "BENCHMARK_FORWARD_DAYS": "14",
         "BENCHMARK_TICKERS": "XRP-USDT,DOGE-USDT",
@@ -71,6 +73,7 @@ def test_config_reads_custom_env():
         assert c.atr_tp_multiplier == 3.5
         assert c.atr_pct_high == 6.0
         assert c.atr_high_adjust == 2.0
+        assert c.atr_sl_max_pct == 0.10
         assert c.benchmark_days == 180
         assert c.benchmark_forward_days == 14
         assert c.benchmark_tickers == ["XRP-USDT", "DOGE-USDT"]

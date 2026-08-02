@@ -88,6 +88,7 @@ def run_benchmark(
     atr_tp_multiplier: float = 3.0,
     atr_pct_high: float = 5.0,
     atr_high_adjust: float = 1.5,
+    atr_sl_max_pct: float = 0.0,
     allow_pyramiding: bool = False,
 ) -> tuple[list[dict[str, Any]], dict[str, Any]]:
     from analyzer.indicators.rsi import detect_rsi_divergences
@@ -138,6 +139,7 @@ def run_benchmark(
             atr_tp_multiplier=atr_tp_multiplier,
             atr_pct_high=atr_pct_high,
             atr_high_adjust=atr_high_adjust,
+            atr_sl_max_pct=atr_sl_max_pct,
         )
         if not result:
             continue
@@ -231,6 +233,18 @@ def run_benchmark(
         "sell_total": sell_total,
     }
 
+def _fmt_price(p: float | None) -> str:
+    if p is None:
+        return "-"
+    if abs(p) >= 1000:
+        return f"${p:,.0f}"
+    if abs(p) >= 1:
+        return f"${p:,.2f}"
+    if abs(p) >= 0.01:
+        return f"${p:,.4f}"
+    return f"${p:,.6f}"
+
+
 def print_ledger(
     signals: list[dict[str, Any]],
     summary: dict[str, Any],
@@ -263,23 +277,17 @@ def print_ledger(
     for s in signals:
         mark = "\u2713" if s["hit"] is True else ("\u2717" if s["hit"] is False else "-")
         exit_reason = s.get("exit", "expiry")
-        exit_str = (
-            f"${s['forward_price']:,.0f} {exit_reason}"
-            if s.get("forward_price") is not None and exit_reason != "expiry"
-            else (f"${s['forward_price']:,.0f}" if s.get("forward_price") is not None else "-")
-        )
+        if s.get("forward_price") is not None:
+            base = _fmt_price(s["forward_price"])
+            exit_str = f"{base} {exit_reason}" if exit_reason != "expiry" else base
+        else:
+            exit_str = "-"
         pct_str = (
             f"{s['pct']:+.1f}%" if s["pct"] is not None else "N/A"
         )
-        entry_str = f"${s['entry_price']:,.0f}"
-        sl_str = (
-            f"${s['sl_price']:,.0f}"
-            if s.get("sl_price", 0) else "-"
-        )
-        tp_str = (
-            f"${s['tp_price']:,.0f}"
-            if s.get("tp_price", 0) else "-"
-        )
+        entry_str = _fmt_price(s["entry_price"])
+        sl_str = _fmt_price(s.get("sl_price")) if s.get("sl_price", 0) else "-"
+        tp_str = _fmt_price(s.get("tp_price")) if s.get("tp_price", 0) else "-"
         dir_str = s["action"].upper()[:4]
         print(
             f"  {s['date']:<10} {dir_str:<5} {entry_str:>10} "
@@ -386,6 +394,7 @@ def main() -> None:
             atr_tp_multiplier=cfg.atr_tp_multiplier,
             atr_pct_high=cfg.atr_pct_high,
             atr_high_adjust=cfg.atr_high_adjust,
+            atr_sl_max_pct=cfg.atr_sl_max_pct,
             allow_pyramiding=cfg.allow_pyramiding,
         )
 

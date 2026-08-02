@@ -81,6 +81,7 @@ def analyze_ticker(ticker: str, cfg: Config, redis_client: redis.Redis) -> None:
         atr_tp_multiplier=cfg.atr_tp_multiplier,
         atr_pct_high=cfg.atr_pct_high,
         atr_high_adjust=cfg.atr_high_adjust,
+        atr_sl_max_pct=cfg.atr_sl_max_pct,
     )
 
     t1 = time.monotonic()

@@ -28,6 +28,7 @@ def generate_signals(
     atr_tp_multiplier: float = 3.0,
     atr_pct_high: float = 5.0,
     atr_high_adjust: float = 1.5,
+    atr_sl_max_pct: float = 0.0,
 ) -> list[Signal]:
     """Generate ONE trading signal from the most recent RSI divergence.
 
@@ -121,9 +122,15 @@ def generate_signals(
         if best[1] == "buy":
             sl_price = latest_close - atr_val * sl_mult
             tp_price = latest_close + atr_val * tp_mult
+            if atr_sl_max_pct > 0:
+                max_sl = latest_close * (1 - atr_sl_max_pct)
+                sl_price = max(sl_price, max_sl)
         else:
             sl_price = latest_close + atr_val * sl_mult
             tp_price = latest_close - atr_val * tp_mult
+            if atr_sl_max_pct > 0:
+                max_sl = latest_close * (1 + atr_sl_max_pct)
+                sl_price = min(sl_price, max_sl)
 
     return [
         Signal(
