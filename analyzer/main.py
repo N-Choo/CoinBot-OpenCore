@@ -51,7 +51,9 @@ def analyze_ticker(ticker: str, cfg: Config, redis_client: redis.Redis) -> None:
 
     try:
         symbol = ticker.replace("/", "-")
-        df = fetch_klines(symbol, timeframe=cfg.kucoin_timeframe, base_url=cfg.kuCoin_base_url)
+        df = fetch_klines(
+            symbol, timeframe=cfg.kucoin_timeframe, base_url=cfg.kuCoin_base_url
+        )
     except KuCoinFetchError as e:
         logger.error("  ✗ %-12s  fetch failed — %s", ticker, e)
         return
@@ -152,8 +154,11 @@ def main() -> None:
         cfg.redis_port,
         cfg.ticker_channel,
     )
-    logger.info("  kuCoin   %s  (timeframe: %s)",
-                 cfg.kuCoin_base_url, cfg.kucoin_timeframe)
+    logger.info(
+        "  kuCoin   %s  (timeframe: %s)",
+        cfg.kuCoin_base_url,
+        cfg.kucoin_timeframe,
+    )
     logger.info(
         "  rsi      period=%d  order=%d",
         cfg.rsi_period,

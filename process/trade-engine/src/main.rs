@@ -7,27 +7,30 @@ use share::{
     },
 };
 
-use log::{info, warn};
-use sqlx::PgPool;
+mod app_config;
+mod app_state;
+
+use app_config::AppConfig;
+use app_state::AppState;
 
 #[tokio::main]
 async fn main() -> Result<(), ProcessError> {
     dotenvy::dotenv().ok();
     share::logger::init_logger();
 
-    let cfg = ProcessConfig::new("trade_engine");
-    let database_url = cfg.get("DATABASE_URL")?;
-    let pool = sqlx::PgPool::connect(&database_url).await?;
-    let redis_url = cfg.get("REDIS_URL")?;
+    let config = AppConfig::from_env()?;
+    let app_state = AppState::new(&config).await?;
+
+    let pool = app_state.db_pool;
+    let cache = app_state.redis_cache;
 
     let tickers = ContractFilter::new()
         .with_status(Status::Active)
         .execute_tickers(&pool)
         .await?;
-
     let msg = serde_json::to_string(&tickers)?;
-    let cache = Cache::new(&redis_url).await?;
-    cache.publish("tickers:analyze", &msg).await;
 
-    Ok(())
+    loop {
+        cache.publish("tickers:analyze", &msg).await;
+    }
 }
